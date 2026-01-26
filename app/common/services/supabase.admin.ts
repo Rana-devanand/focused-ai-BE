@@ -8,20 +8,16 @@ export const supabaseAdmin = createClient(
 );
 
 // Connection check
-(async () => {
-  console.log("Initializing Supabase...");
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("users")
-      .select("count")
-      .limit(1);
-    if (error && error.code !== "PGRST116") {
-      // Ignore "no rows" type errors if just checking connection
-      console.error("❌ Supabase connection failed:", error.message);
-    } else {
-      console.log("✅ Supabase connection successful!");
-    }
-  } catch (err: any) {
-    console.error("❌ Supabase connection error:", err.message);
+
+export const testSupabaseConnection = async () => {
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select("id")
+    .limit(1);
+
+  if (error) {
+    console.error("❌ Supabase Connection Failed:", error.message);
+  } else {
+    console.log("✅ Supabase Connected Successfully");
   }
-})();
+};
