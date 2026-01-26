@@ -17,6 +17,7 @@ import { initPassport } from "./app/common/services/passport-jwt.service";
 import routes from "./app/routes";
 import { type IUser } from "./app/user/user.dto";
 import { testSupabaseConnection } from "./app/common/services/supabase.admin";
+import { initDB } from "./app/common/services/database.service";
 
 declare global {
   namespace Express {
@@ -39,7 +40,7 @@ app.use(morgan("dev"));
 
 const initApp = async (): Promise<void> => {
   // init mongodb
-  // await initDB();
+  await initDB();
   await testSupabaseConnection();
 
   // passport init
