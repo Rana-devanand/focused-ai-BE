@@ -3,6 +3,10 @@ import cors from "cors";
 import express, { type Express, type Request, type Response } from "express";
 import http from "http";
 import morgan from "morgan";
+import dns from "node:dns";
+
+// Force IPv4 for database connection (Supabase often resolves to IPv6 which can fail in some environments)
+dns.setDefaultResultOrder("ipv4first");
 
 import { loadConfig } from "./app/common/helper/config.hepler";
 loadConfig();
