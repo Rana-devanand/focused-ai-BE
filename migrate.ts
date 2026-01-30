@@ -24,12 +24,24 @@ const runMigration = async () => {
   try {
     console.log("Connecting to database...");
 
-    // Read the SQL file
-    const sqlFilePath = path.join(__dirname, "users.sql");
-    const sql = fs.readFileSync(sqlFilePath, "utf8");
+    // Read the SQL files
+    const usersSqlPath = path.join(__dirname, "users.sql");
+    const passiveIntelligenceSqlPath = path.join(
+      __dirname,
+      "passive_intelligence.sql",
+    );
 
-    console.log("Running migration...");
-    await pool.query(sql);
+    const usersSql = fs.readFileSync(usersSqlPath, "utf8");
+    const passiveIntelligenceSql = fs.readFileSync(
+      passiveIntelligenceSqlPath,
+      "utf8",
+    );
+
+    console.log("Running migration for Users table...");
+    await pool.query(usersSql);
+
+    console.log("Running migration for Passive Intelligence tables...");
+    await pool.query(passiveIntelligenceSql);
 
     console.log("✅ Migration completed successfully!");
     console.log("Users table created in Supabase PostgreSQL");

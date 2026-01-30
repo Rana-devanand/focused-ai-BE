@@ -33,15 +33,23 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger to automatically update updated_at on row update
-CREATE TRIGGER update_users_updated_at
-  BEFORE UPDATE ON users
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+-- Create trigger safely
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_updated_at') THEN
+    CREATE TRIGGER update_users_updated_at
+      BEFORE UPDATE ON users
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Enable Row Level Security (RLS) - optional but recommended
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
 -- Create policy to allow service role full access
+-- Create policy to allow service role full access
+DROP POLICY IF EXISTS "Service role has full access to users" ON users;
 CREATE POLICY "Service role has full access to users"
   ON users
   FOR ALL

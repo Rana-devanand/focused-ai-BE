@@ -18,6 +18,7 @@ import routes from "./app/routes";
 import { type IUser } from "./app/user/user.dto";
 import { testSupabaseConnection } from "./app/common/services/supabase.admin";
 import { initDB } from "./app/common/services/database.service";
+import { connectAI } from "./app/ai/connection";
 
 declare global {
   namespace Express {
@@ -42,6 +43,7 @@ const initApp = async (): Promise<void> => {
   // init mongodb
   await initDB();
   await testSupabaseConnection();
+  // connectAI();
 
   // passport init
   initPassport();

@@ -1,4 +1,6 @@
 import axios from "axios";
+import path from "path";
+import { getWelcomeEmailTemplate } from "../template/welcome.template";
 import { type Request, type Response } from "express";
 import asyncHandler from "express-async-handler";
 import createHttpError from "http-errors";
@@ -17,6 +19,29 @@ import { hashPassword } from "./user.service";
 
 export const createUser = asyncHandler(async (req: Request, res: Response) => {
   const result = await userService.createUser(req.body);
+  const { email, name } = result;
+
+  if (email) {
+    sendEmail({
+      to: email,
+      subject: "Welcome to Focused AI - Your Journey Begins",
+      html: getWelcomeEmailTemplate(name || "User"),
+      attachments: [
+        {
+          filename: "a_AI-POWERED_PASSIVE_P.jpeg",
+          path: path.join(
+            process.cwd(),
+            "app",
+            "template",
+            "assets",
+            "a_AI-POWERED_PASSIVE_P.jpeg",
+          ),
+          cid: "appLogo",
+        },
+      ],
+    });
+  }
+
   res.send(createResponse(result, "User created sucssefully"));
 });
 
