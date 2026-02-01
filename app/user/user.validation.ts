@@ -131,10 +131,17 @@ export const updateUser = [
 ];
 
 export const editUser = [
-  body("name").isString().withMessage("name must be a string"),
-  body("email").isString().withMessage("email must be a string"),
-  body("active").isBoolean().withMessage("active must be a boolean"),
-  body("password").isString().withMessage("password must be a string"),
+  body("name").optional().isString().withMessage("name must be a string"),
+  body("email").optional().isString().withMessage("email must be a string"),
+  body("active").optional().isBoolean().withMessage("active must be a boolean"),
+  body("password")
+    .optional()
+    .isString()
+    .withMessage("password must be a string"),
+  body("fcmToken")
+    .optional()
+    .isString()
+    .withMessage("fcmToken must be a string"),
 ];
 
 export const refreshToken = [

@@ -29,5 +29,25 @@ router.post(
   roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
   controller.analyzeEmails,
 );
+router.post(
+  "/fetch-analyze-emails",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.fetchAndAnalyzeEmails,
+);
+router.get(
+  "/email-tasks",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.getEmailTasks,
+);
+router.patch(
+  "/email-tasks/:taskId",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.updateTaskStatus,
+);
+router.post(
+  "/email-tasks/create",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.createManualTask,
+);
 
 export default router;

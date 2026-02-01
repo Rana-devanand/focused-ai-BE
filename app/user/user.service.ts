@@ -9,7 +9,6 @@ export const hashPassword = async (password: string) => {
   return hash;
 };
 
-// Helper function to convert snake_case DB columns to camelCase
 const mapRowToUser = (row: any): IUser => {
   if (!row) return row;
   return {
@@ -26,8 +25,11 @@ const mapRowToUser = (row: any): IUser => {
     facebookId: row.facebook_id,
     image: row.image,
     linkedinId: row.linkedin_id,
+    googleAccessToken: row.google_access_token,
+    lastEmailFetch: row.last_email_fetch,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    fcmToken: row.fcm_token,
   };
 };
 
@@ -109,6 +111,11 @@ export const editUser = async (id: string, data: Partial<IUser>) => {
   if (data.facebookId !== undefined) dbData.facebook_id = data.facebookId;
   if (data.image !== undefined) dbData.image = data.image;
   if (data.linkedinId !== undefined) dbData.linkedin_id = data.linkedinId;
+  if (data.googleAccessToken !== undefined)
+    dbData.google_access_token = data.googleAccessToken;
+  if (data.lastEmailFetch !== undefined)
+    dbData.last_email_fetch = data.lastEmailFetch;
+  if (data.fcmToken !== undefined) dbData.fcm_token = data.fcmToken;
 
   const { data: updatedUser, error } = await supabaseAdmin
     .from("users")
@@ -148,6 +155,9 @@ export const getUserById = async (
         if (key === "blockReason") return "block_reason";
         if (key === "facebookId") return "facebook_id";
         if (key === "linkedinId") return "linkedin_id";
+        if (key === "googleAccessToken") return "google_access_token";
+        if (key === "lastEmailFetch") return "last_email_fetch";
+        if (key === "fcmToken") return "fcm_token";
         if (key === "created_at") return "created_at";
         if (key === "updated_at") return "updated_at";
         return key;
@@ -179,6 +189,8 @@ export const getAllUser = async (
         if (key === "blockReason") return "block_reason";
         if (key === "facebookId") return "facebook_id";
         if (key === "linkedinId") return "linkedin_id";
+        if (key === "googleAccessToken") return "google_access_token";
+        if (key === "lastEmailFetch") return "last_email_fetch";
         return key;
       });
     if (fields.length > 0) {
@@ -218,6 +230,8 @@ export const getUserByEmail = async (
         if (key === "blockReason") return "block_reason";
         if (key === "facebookId") return "facebook_id";
         if (key === "linkedinId") return "linkedin_id";
+        if (key === "googleAccessToken") return "google_access_token";
+        if (key === "lastEmailFetch") return "last_email_fetch";
         return key;
       });
     if (fields.length > 0) {
