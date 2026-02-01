@@ -18,7 +18,9 @@ import routes from "./app/routes";
 import { type IUser } from "./app/user/user.dto";
 import { testSupabaseConnection } from "./app/common/services/supabase.admin";
 import { initDB } from "./app/common/services/database.service";
+import { runMigration } from "./migrate";
 import { connectAI } from "./app/ai/connection";
+import { initNotificationService } from "./app/notification/notification.service";
 
 declare global {
   namespace Express {
@@ -40,9 +42,11 @@ app.use(express.json());
 app.use(morgan("dev"));
 
 const initApp = async (): Promise<void> => {
-  // init mongodb
+  // init mongodb (postgres)
   await initDB();
+  await runMigration(); // Auto-run migration
   await testSupabaseConnection();
+  initNotificationService(); // Init hourly notifications
   // connectAI();
 
   // passport init

@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS email_tasks (
   task_description TEXT, -- The task identified by AI
   is_completed BOOLEAN DEFAULT false,
   priority VARCHAR(20) CHECK (priority IN ('HIGH', 'MEDIUM', 'LOW')),
+  notification_sent BOOLEAN DEFAULT false,
   due_date TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

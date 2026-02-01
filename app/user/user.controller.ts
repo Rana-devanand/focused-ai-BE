@@ -209,6 +209,11 @@ export const editUser = asyncHandler(async (req: Request, res: Response) => {
   res.send(createResponse(result, "User updated sucssefully"));
 });
 
+export const updateSelf = asyncHandler(async (req: Request, res: Response) => {
+  const result = await userService.editUser(req.user!.id, req.body);
+  res.send(createResponse(result, "User updated successfully"));
+});
+
 export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
   const result = await userService.deleteUser(req.params.id);
   res.send(createResponse(result, "User deleted sucssefully"));
@@ -365,8 +370,21 @@ export const googleLogin = asyncHandler(async (req: Request, res: Response) => {
       role: "USER",
     }));
 
-  const tokens = createUserTokens(user);
-  await userService.editUser(user.id, { refreshToken: tokens.refreshToken });
+  // Store both refresh token and Google access token
+  await userService.editUser(user.id, {
+    refreshToken: "",
+    googleAccessToken: req.body.access_token, // Store Google access token for Gmail API
+  });
+
+  // Fetch the updated user with the Google access token
+  const updatedUser = await userService.getUserById(user.id);
+
+  if (!updatedUser) {
+    throw new Error("Failed to fetch updated user");
+  }
+
+  const tokens = createUserTokens(updatedUser);
+
   res.send(createResponse(tokens));
 });
 

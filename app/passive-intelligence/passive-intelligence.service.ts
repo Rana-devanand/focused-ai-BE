@@ -192,3 +192,124 @@ export const createEmailTask = async (task: IEmailTask) => {
   const result = await pool.query(query, values);
   return mapRowToEmailTask(result.rows[0]);
 };
+
+export const getEmailTasks = async (
+  userId: string,
+  limit = 20,
+): Promise<IEmailTask[]> => {
+  const pool = getDBPool();
+  const query = `
+    SELECT * FROM email_tasks 
+    WHERE user_id = $1
+    ORDER BY 
+      CASE priority
+        WHEN 'HIGH' THEN 1
+        WHEN 'MEDIUM' THEN 2
+        WHEN 'LOW' THEN 3
+      END,
+      created_at DESC 
+    LIMIT $2
+  `;
+  const result = await pool.query(query, [userId, limit]);
+  return result.rows.map(mapRowToEmailTask);
+};
+
+export const getTasksDueToday = async (
+  userId: string,
+): Promise<IEmailTask[]> => {
+  const pool = getDBPool();
+  // Fetch uncompleted tasks that are due today or overdue
+  const query = `
+    SELECT * FROM email_tasks 
+    WHERE user_id = $1 
+    AND is_completed = false
+    AND due_date IS NOT NULL
+    AND due_date::date <= CURRENT_DATE
+    ORDER BY 
+      CASE priority
+        WHEN 'HIGH' THEN 1
+        WHEN 'MEDIUM' THEN 2
+        ELSE 3
+      END
+  `;
+  const result = await pool.query(query, [userId]);
+  return result.rows.map(mapRowToEmailTask);
+};
+
+export const updateTaskStatus = async (
+  taskId: string,
+  userId: string,
+  updates: { isRead?: boolean; isCompleted?: boolean },
+) => {
+  const pool = getDBPool();
+
+  let setClause = [];
+  let values: any[] = [taskId, userId];
+  let paramIndex = 3;
+
+  if (updates.isRead !== undefined) {
+    setClause.push(`is_read = $${paramIndex}`);
+    values.push(updates.isRead);
+    paramIndex++;
+  }
+
+  if (updates.isCompleted !== undefined) {
+    setClause.push(`is_completed = $${paramIndex}`);
+    // If completed, set completed_at. If not, set to null
+    if (updates.isCompleted) {
+      setClause.push(`completed_at = NOW()`);
+    } else {
+      setClause.push(`completed_at = NULL`);
+    }
+    values.push(updates.isCompleted);
+    paramIndex++;
+  }
+
+  if (setClause.length === 0) return null;
+
+  const query = `
+    UPDATE email_tasks
+    SET ${setClause.join(", ")}, updated_at = NOW()
+    WHERE id = $1 AND user_id = $2
+    RETURNING *
+  `;
+
+  const result = await pool.query(query, values);
+  return result.rows[0] ? mapRowToEmailTask(result.rows[0]) : null;
+};
+
+export const createManualTask = async (
+  userId: string,
+  task: {
+    title: string;
+    priority: "HIGH" | "MEDIUM" | "LOW";
+    dueDate?: string;
+  },
+) => {
+  const pool = getDBPool();
+  const query = `
+    INSERT INTO email_tasks (
+      user_id, 
+      subject, 
+      task_description, 
+      priority, 
+      due_date,
+      from_address,
+      snippet,
+      received_at
+    )
+    VALUES ($1, $2, $3, $4, $5, 'Self', 'Manual Task', NOW())
+    RETURNING *;
+  `;
+
+  // Using title as both subject and description for manual tasks
+  const result = await pool.query(query, [
+    userId,
+    task.title,
+    task.title,
+    task.priority,
+    task.dueDate || null,
+  ]);
+
+  return mapRowToEmailTask(result.rows[0]);
+};

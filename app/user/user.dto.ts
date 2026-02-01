@@ -13,6 +13,9 @@ export interface IUser extends BaseSchema {
   facebookId?: string;
   image?: string;
   linkedinId?: string;
+  googleAccessToken?: string;
+  lastEmailFetch?: Date;
+  fcmToken?: string;
 }
 
 export enum ProviderType {

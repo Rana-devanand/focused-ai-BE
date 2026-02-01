@@ -13,82 +13,89 @@ router
   .get("/:id", userController.getUserById)
   .delete("/:id", userController.deleteUser)
   .post("/", userValidator.createUser, catchError, userController.createUser)
+  .patch(
+    "/update",
+    roleAuth(["USER"]),
+    userValidator.editUser,
+    catchError,
+    userController.updateSelf,
+  )
   .put("/:id", userValidator.updateUser, catchError, userController.updateUser)
   .patch("/:id", userValidator.editUser, catchError, userController.editUser)
   .post(
     "/register",
     userValidator.createUser,
     catchError,
-    userController.createUser
+    userController.createUser,
   )
   .post(
     "/invite",
     userValidator.verifyEmail,
     catchError,
-    userController.inviteUser
+    userController.inviteUser,
   )
   .post(
     "/verify-invitation",
     userValidator.verifyInvitation,
     catchError,
-    userController.verifyInvitation
+    userController.verifyInvitation,
   )
   .post(
     "/reset-password",
     userValidator.verifyInvitation,
     catchError,
-    userController.resetPassword
+    userController.resetPassword,
   )
   .post(
     "/forgot-password",
     userValidator.forgotPassword,
     catchError,
-    userController.requestResetPassword
+    userController.requestResetPassword,
   )
   .post(
     "/change-password",
     roleAuth(["USER"]),
     userValidator.changePassword,
     catchError,
-    userController.changePassword
+    userController.changePassword,
   )
   .post(
     "/login",
     userValidator.login,
     catchError,
     passport.authenticate("login", { session: false }),
-    userController.login
+    userController.login,
   )
   .post(
     "/refresh-token",
     userValidator.refreshToken,
     catchError,
-    userController.refreshToken
+    userController.refreshToken,
   )
   .post("/logout", roleAuth(["USER"]), userController.logout)
   .post(
     "/social/google",
     userValidator.socialLogin("access_token"),
     catchError,
-    userController.googleLogin
+    userController.googleLogin,
   )
   .post(
     "/social/facebook",
     userValidator.socialLogin("access_token"),
     catchError,
-    userController.fbLogin
+    userController.fbLogin,
   )
   .post(
     "/social/linkedin",
     userValidator.socialLogin("access_token"),
     catchError,
-    userController.linkedInLogin
+    userController.linkedInLogin,
   )
   .post(
     "/social/apple",
     userValidator.socialLogin("id_token"),
     catchError,
-    userController.appleLogin
+    userController.appleLogin,
   );
 
 export default router;
