@@ -3,6 +3,7 @@ import passport from "passport";
 import { catchError } from "../common/middleware/cath-error.middleware";
 import { roleAuth } from "../common/middleware/role-auth.middleware";
 import * as userController from "./user.controller";
+import { getAiStats } from "./user-stats.controller";
 import * as userValidator from "./user.validation";
 
 const router = Router();
@@ -10,6 +11,7 @@ const router = Router();
 router
   .get("/", userController.getAllUser)
   .get("/me", roleAuth(["USER"]), userController.getUserInfo)
+  .get("/ai-stats", roleAuth(["USER"]), getAiStats)
   .get("/:id", userController.getUserById)
   .delete("/:id", userController.deleteUser)
   .post("/", userValidator.createUser, catchError, userController.createUser)

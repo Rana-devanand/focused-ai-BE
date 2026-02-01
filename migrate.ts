@@ -25,37 +25,21 @@ export const runMigration = async () => {
     console.log("Connecting to database for migration...");
 
     // Read the SQL files
-    const usersSqlPath = path.join(__dirname, "users.sql");
-    const passiveIntelligenceSqlPath = path.join(
-      __dirname,
+    // Read the SQL files
+    const migrationFiles = [
+      "users.sql",
       "passive_intelligence.sql",
-    );
-    const usersUpdateFcmPath = path.join(__dirname, "users_update_fcm.sql");
-
-    const usersSql = fs.readFileSync(usersSqlPath, "utf8");
-    const passiveIntelligenceSql = fs.readFileSync(
-      passiveIntelligenceSqlPath,
-      "utf8",
-    );
-    const usersUpdateFcmSql = fs.readFileSync(usersUpdateFcmPath, "utf8");
-
-    console.log("Running migration for Users table...");
-    await pool.query(usersSql);
-
-    console.log("Running migration for Passive Intelligence tables...");
-    await pool.query(passiveIntelligenceSql);
-
-    console.log("Running migration for FCM Token...");
-    await pool.query(usersUpdateFcmSql);
-
-    const emailTasksUpdatePath = path.join(
-      __dirname,
+      "users_update_fcm.sql",
       "passive_intelligence_update_notification.sql",
-    );
-    const emailTasksUpdateSql = fs.readFileSync(emailTasksUpdatePath, "utf8");
+      "users_update_notifications.sql",
+    ];
 
-    console.log("Running migration for Email Tasks Notification...");
-    await pool.query(emailTasksUpdateSql);
+    for (const file of migrationFiles) {
+      const filePath = path.join(__dirname, file);
+      const sql = fs.readFileSync(filePath, "utf8");
+      console.log(`Running migration for ${file}...`);
+      await pool.query(sql);
+    }
 
     console.log("✅ Migration completed successfully!");
   } catch (error) {

@@ -31,8 +31,8 @@ export const initNotificationService = () => {
     isInitialized = true;
 
     // Schedule task to run every hour
-    cron.schedule("0 * * * *", async () => {
-      console.log("⏰ Running Hourly Notification Check...");
+    cron.schedule("0 */6 * * *", async () => {
+      console.log("⏰ Running 6-Hour Notification Check...");
       await checkAndSendNotifications();
     });
 
@@ -61,6 +61,7 @@ const checkAndSendNotifications = async () => {
         AND t.priority IN ('HIGH', 'MEDIUM')
         AND u.fcm_token IS NOT NULL
         AND u.fcm_token != ''
+        AND (u.notifications_enabled IS NULL OR u.notifications_enabled = true) -- Check preference
       LIMIT 50; -- Batch size limits
     `;
 

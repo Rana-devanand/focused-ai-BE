@@ -78,6 +78,23 @@ export const getDailyStats = async (
   return result.rows[0] ? mapRowToStats(result.rows[0]) : null;
 };
 
+export const getWeeklyStats = async (
+  userId: string,
+  endDate: string, // YYYY-MM-DD
+  days: number = 7,
+): Promise<IDailyStats[]> => {
+  const pool = getDBPool();
+  const query = `
+    SELECT * FROM daily_stats 
+    WHERE user_id = $1 
+    AND date <= $2 
+    AND date > ($2::date - interval '${days} days')
+    ORDER BY date ASC
+  `;
+  const result = await pool.query(query, [userId, endDate]);
+  return result.rows.map(mapRowToStats);
+};
+
 export const upsertDailyStats = async (stats: IDailyStats) => {
   const pool = getDBPool();
   // Map input camelCase to snake_case for DB

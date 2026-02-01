@@ -16,6 +16,7 @@ export interface IUser extends BaseSchema {
   googleAccessToken?: string;
   lastEmailFetch?: Date;
   fcmToken?: string;
+  notificationsEnabled?: boolean;
 }
 
 export enum ProviderType {
