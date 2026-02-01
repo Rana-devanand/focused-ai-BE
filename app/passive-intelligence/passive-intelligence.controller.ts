@@ -36,6 +36,104 @@ export const getDashboardData = asyncHandler(
   },
 );
 
+export const getInsightsData = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id!;
+    const today = new Date();
+    const endDate = today.toISOString().split("T")[0];
+
+    // 1. Fetch Weekly Stats (Last 7 days)
+    const weeklyStats = await service.getWeeklyStats(userId, endDate, 7);
+
+    // 2. Fetch AI Insights
+    const aiInsights = await service.getInsights(userId, 3);
+
+    // 3. Aggregate Data for Charts
+    let totalFocusMinutes = 0;
+    let streak = 0;
+    let peakDay = { day: "", value: 0 };
+    const appUsageMap: Record<string, number> = {};
+
+    // Calculate Streak (consecutive days with activity backwards from today)
+    // Note: weeklyStats is ordered ASC.
+    const reversedStats = [...weeklyStats].reverse();
+    const checkDate = new Date(today);
+
+    // Simple streak: check if entry exists for consecutive previous days
+    // A more robust streak would check gaps, but this is a starting point.
+    // For now, let's just count days in the last 7 days with focusScore > 0
+    streak = weeklyStats.filter((s) => s.focusScore > 0).length;
+
+    weeklyStats.forEach((stat) => {
+      // Focus Minutes
+      totalFocusMinutes += stat.focusScore || 0; // Assuming focusScore is roughly minutes or points
+
+      // Peak Day
+      if ((stat.focusScore || 0) > peakDay.value) {
+        peakDay = {
+          day: new Date(stat.date).toLocaleDateString("en-US", {
+            weekday: "long",
+          }),
+          value: stat.focusScore || 0,
+        };
+      }
+
+      // App Usage Aggregation
+      if (Array.isArray(stat.appUsageBreakdown)) {
+        stat.appUsageBreakdown.forEach((app: any) => {
+          // Aggregate by app name for now as we don't have categories yet
+          const name = app.appName || app.packageName;
+          appUsageMap[name] =
+            (appUsageMap[name] || 0) + (app.durationMinutes || 0);
+        });
+      }
+    });
+
+    // Format Weekly Data for Chart
+    const weeklyChartData = weeklyStats.map((stat) => ({
+      day: new Date(stat.date).toLocaleDateString("en-US", {
+        weekday: "short",
+      }),
+      hours: parseFloat(((stat.focusScore || 0) / 60).toFixed(1)), // Convert to hours
+      fullDate: stat.date,
+    }));
+
+    // Format Category Data (Top 5 Apps by time)
+    const predefinedColors = [
+      "#4D96FF",
+      "#6BCB77",
+      "#FFD93D",
+      "#FF6B6B",
+      "#6C63FF",
+    ];
+
+    const categoryData = Object.entries(appUsageMap)
+      .map(([label, value], index) => ({
+        label,
+        value: Math.round(value),
+        color: predefinedColors[index % predefinedColors.length],
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5); // Start with Top 5 apps
+
+    res.send(
+      createResponse(
+        {
+          weeklyData: weeklyChartData,
+          categoryData,
+          summary: {
+            peakDay: peakDay.day || "None",
+            avgDailyFocus: (totalFocusMinutes / 7 / 60).toFixed(1), // Hours
+            streak,
+          },
+          insights: aiInsights,
+        },
+        "Insights data retrieved successfully",
+      ),
+    );
+  },
+);
+
 export const syncEvents = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.id!;
   const { events } = req.body;

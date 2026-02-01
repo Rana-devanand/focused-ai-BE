@@ -30,6 +30,7 @@ const mapRowToUser = (row: any): IUser => {
     created_at: row.created_at,
     updated_at: row.updated_at,
     fcmToken: row.fcm_token,
+    notificationsEnabled: row.notifications_enabled,
   };
 };
 
@@ -116,17 +117,21 @@ export const editUser = async (id: string, data: Partial<IUser>) => {
   if (data.lastEmailFetch !== undefined)
     dbData.last_email_fetch = data.lastEmailFetch;
   if (data.fcmToken !== undefined) dbData.fcm_token = data.fcmToken;
+  if (data.notificationsEnabled !== undefined)
+    dbData.notifications_enabled = data.notificationsEnabled;
 
   const { data: updatedUser, error } = await supabaseAdmin
     .from("users")
     .update(dbData)
     .eq("id", id)
-    .select("id, name, email, image, created_at")
+    .select(
+      "id, name, email, image, role, provider, active, notifications_enabled, fcm_token, created_at, updated_at",
+    )
     .single();
 
   if (error) throw error;
 
-  return updatedUser;
+  return mapRowToUser(updatedUser);
 };
 
 export const deleteUser = async (id: string) => {

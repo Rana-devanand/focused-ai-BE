@@ -9,6 +9,11 @@ router.get(
   roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
   controller.getDashboardData,
 );
+router.get(
+  "/insights",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.getInsightsData,
+);
 router.post(
   "/events/sync",
   roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
