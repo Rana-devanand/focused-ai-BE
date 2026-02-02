@@ -8,7 +8,7 @@ let isInitialized = false;
 
 export const initNotificationService = () => {
   if (isInitialized) return;
-
+  console.log("Initializing notification service...");
   try {
     const serviceAccountPath = path.join(process.cwd(), "service-account.json");
 
