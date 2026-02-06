@@ -25,6 +25,7 @@ export interface IEmailTask {
   receivedAt?: Date;
   taskDescription?: string;
   isCompleted?: boolean;
+  isRead?: boolean;
   priority?: "HIGH" | "MEDIUM" | "LOW";
   dueDate?: Date;
   createdAt?: Date;
@@ -55,4 +56,27 @@ export interface IAIInsight {
   metadata?: any;
   isRead?: boolean;
   createdAt?: Date;
+}
+
+export interface ISuggestedAction {
+  id?: string;
+  userId: string;
+  title: string;
+  description?: string;
+  type: "BREAK" | "REVIEW" | "FOCUS" | "DELEGATE";
+  confidenceScore?: number;
+  isDismissed?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface IDailyMood {
+  id?: string;
+  userId: string;
+  date: string;
+  mood: "great" | "ok" | "stressed";
+  energy: "high" | "medium" | "low";
+  note?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }

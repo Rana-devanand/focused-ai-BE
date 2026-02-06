@@ -55,4 +55,22 @@ router.post(
   controller.createManualTask,
 );
 
+router.get(
+  "/suggested-actions",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.getSuggestedActions,
+);
+
+router.get(
+  "/daily-mood",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.getDailyMood,
+);
+
+router.post(
+  "/daily-mood",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.logDailyMood,
+);
+
 export default router;
