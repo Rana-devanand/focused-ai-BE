@@ -31,6 +31,9 @@ const mapRowToUser = (row: any): IUser => {
     updated_at: row.updated_at,
     fcmToken: row.fcm_token,
     notificationsEnabled: row.notifications_enabled,
+    currentStreak: row.current_streak,
+    lastActiveDate: row.last_active_date,
+    totalActiveMinutes: row.total_active_minutes,
   };
 };
 
@@ -165,6 +168,9 @@ export const getUserById = async (
         if (key === "fcmToken") return "fcm_token";
         if (key === "created_at") return "created_at";
         if (key === "updated_at") return "updated_at";
+        if (key === "currentStreak") return "current_streak";
+        if (key === "lastActiveDate") return "last_active_date";
+        if (key === "totalActiveMinutes") return "total_active_minutes";
         return key;
       });
     if (fields.length > 0) {
@@ -196,6 +202,9 @@ export const getAllUser = async (
         if (key === "linkedinId") return "linkedin_id";
         if (key === "googleAccessToken") return "google_access_token";
         if (key === "lastEmailFetch") return "last_email_fetch";
+        if (key === "currentStreak") return "current_streak";
+        if (key === "lastActiveDate") return "last_active_date";
+        if (key === "totalActiveMinutes") return "total_active_minutes";
         return key;
       });
     if (fields.length > 0) {
@@ -255,4 +264,77 @@ export const countItems = async () => {
   const query = `SELECT COUNT(*) as count FROM users`;
   const result = await pool.query(query);
   return parseInt(result.rows[0].count);
+};
+
+export const ensureStatsColumns = async () => {
+  const pool = getDBPool();
+  try {
+    await pool.query(`
+      ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS current_streak INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS last_active_date DATE,
+      ADD COLUMN IF NOT EXISTS total_active_minutes INTEGER DEFAULT 0;
+    `);
+  } catch (e) {
+    console.error("Error ensuring stats columns:", e);
+  }
+};
+
+export const updateUserStats = async (
+  userId: string,
+  data: { date: string; minutes: number },
+) => {
+  await ensureStatsColumns(); // Ensure columns exist before update
+  const pool = getDBPool();
+
+  // Fetch current user stats
+  const user = await getUserById(userId, {
+    currentStreak: true,
+    lastActiveDate: true,
+    totalActiveMinutes: true,
+  });
+
+  if (!user) return null;
+
+  let newStreak = user.currentStreak || 0;
+  const lastActive = user.lastActiveDate ? new Date(user.lastActiveDate) : null;
+  const today = new Date(data.date);
+
+  // Normalize to connect at midnight
+  if (lastActive) lastActive.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+
+  // Check streak
+  if (lastActive) {
+    const diffTime = today.getTime() - lastActive.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 1) {
+      newStreak += 1; // Consecutive day
+    } else if (diffDays > 1) {
+      newStreak = 1; // Reset streak
+    }
+  } else {
+    newStreak = 1; // First activity
+  }
+
+  const query = `
+    UPDATE users
+    SET 
+      current_streak = $1,
+      last_active_date = $2,
+      total_active_minutes = COALESCE(total_active_minutes, 0) + $3,
+      updated_at = NOW()
+    WHERE id = $4
+    RETURNING *
+  `;
+
+  const result = await pool.query(query, [
+    newStreak,
+    data.date,
+    data.minutes,
+    userId,
+  ]);
+
+  return result.rows[0] ? mapRowToUser(result.rows[0]) : null;
 };

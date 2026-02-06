@@ -32,6 +32,7 @@ export const runMigration = async () => {
       "users_update_fcm.sql",
       "passive_intelligence_update_notification.sql",
       "users_update_notifications.sql",
+      "home_screen_enhancements.sql",
     ];
 
     for (const file of migrationFiles) {

@@ -17,6 +17,9 @@ export interface IUser extends BaseSchema {
   lastEmailFetch?: Date;
   fcmToken?: string;
   notificationsEnabled?: boolean;
+  currentStreak?: number;
+  lastActiveDate?: Date;
+  totalActiveMinutes?: number;
 }
 
 export enum ProviderType {

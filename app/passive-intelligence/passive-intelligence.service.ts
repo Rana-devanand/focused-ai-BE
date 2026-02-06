@@ -4,7 +4,11 @@ import {
   IDailyStats,
   IEmailTask,
   IAIInsight,
+  ISuggestedAction,
+  IDailyMood,
 } from "./passive-intelligence.dto";
+import * as userService from "../user/user.service";
+import { analyzePerformanceWithGroq } from "../ai/groq-connection";
 
 // Helper to convert snake_case DB result to camelCase DTO
 const mapRowToEvent = (row: any): ICalendarEvent => {
@@ -52,6 +56,7 @@ const mapRowToEmailTask = (row: any): IEmailTask => ({
   receivedAt: row.received_at,
   taskDescription: row.task_description,
   isCompleted: row.is_completed,
+  isRead: row.is_read,
   priority: row.priority,
   dueDate: row.due_date,
   createdAt: row.created_at,
@@ -66,6 +71,29 @@ const mapRowToInsight = (row: any): IAIInsight => ({
   metadata: row.metadata,
   isRead: row.is_read,
   createdAt: row.created_at,
+});
+
+const mapRowToSuggestedAction = (row: any): ISuggestedAction => ({
+  id: row.id,
+  userId: row.user_id,
+  title: row.title,
+  description: row.description,
+  type: row.type,
+  confidenceScore: row.confidence_score,
+  isDismissed: row.is_dismissed,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+const mapRowToDailyMood = (row: any): IDailyMood => ({
+  id: row.id,
+  userId: row.user_id,
+  date: row.date,
+  mood: row.mood,
+  energy: row.energy,
+  note: row.note,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
 });
 
 export const getDailyStats = async (
@@ -118,7 +146,21 @@ export const upsertDailyStats = async (stats: IDailyStats) => {
     stats.focusScore,
     JSON.stringify(stats.appUsageBreakdown || []),
   ]);
-  return mapRowToStats(result.rows[0]);
+  const statsResult = mapRowToStats(result.rows[0]);
+
+  if (stats.focusScore > 0) {
+    // Fire and forget stats update or await it? Await for consistency.
+    try {
+      await userService.updateUserStats(stats.userId, {
+        date: stats.date,
+        minutes: stats.focusScore,
+      });
+    } catch (e) {
+      console.error("Failed to update user stats:", e);
+    }
+  }
+
+  return statsResult;
 };
 
 export const getCalendarEvents = async (
@@ -213,11 +255,42 @@ export const createEmailTask = async (task: IEmailTask) => {
 export const getEmailTasks = async (
   userId: string,
   limit = 20,
+  filters?: {
+    priority?: "HIGH" | "MEDIUM" | "LOW";
+    isRead?: boolean;
+    isManual?: boolean;
+  },
 ): Promise<IEmailTask[]> => {
   const pool = getDBPool();
+
+  // Build WHERE clause dynamically based on filters
+  let whereConditions = ["user_id = $1"];
+  let queryParams: any[] = [userId];
+  let paramIndex = 2;
+
+  if (filters?.priority) {
+    whereConditions.push(`priority = $${paramIndex}`);
+    queryParams.push(filters.priority);
+    paramIndex++;
+  }
+
+  if (filters?.isRead !== undefined) {
+    whereConditions.push(`is_read = $${paramIndex}`);
+    queryParams.push(filters.isRead);
+    paramIndex++;
+  }
+
+  if (filters?.isManual !== undefined) {
+    if (filters.isManual) {
+      whereConditions.push(`from_address = 'Self'`);
+    } else {
+      whereConditions.push(`from_address != 'Self'`);
+    }
+  }
+
   const query = `
     SELECT * FROM email_tasks 
-    WHERE user_id = $1
+    WHERE ${whereConditions.join(" AND ")}
     ORDER BY 
       CASE priority
         WHEN 'HIGH' THEN 1
@@ -225,9 +298,12 @@ export const getEmailTasks = async (
         WHEN 'LOW' THEN 3
       END,
       created_at DESC 
-    LIMIT $2
+    LIMIT $${paramIndex}
   `;
-  const result = await pool.query(query, [userId, limit]);
+
+  queryParams.push(limit);
+
+  const result = await pool.query(query, queryParams);
   return result.rows.map(mapRowToEmailTask);
 };
 
@@ -329,4 +405,80 @@ export const createManualTask = async (
   ]);
 
   return mapRowToEmailTask(result.rows[0]);
+};
+
+export const getSuggestedActions = async (
+  userId: string,
+): Promise<ISuggestedAction[]> => {
+  const pool = getDBPool();
+  const query = `
+    SELECT * FROM suggested_actions 
+    WHERE user_id = $1 
+    AND is_dismissed = false
+    ORDER BY created_at DESC 
+    LIMIT 5
+  `;
+  const result = await pool.query(query, [userId]);
+  return result.rows.map(mapRowToSuggestedAction);
+};
+
+export const createSuggestedAction = async (action: ISuggestedAction) => {
+  const pool = getDBPool();
+  const query = `
+    INSERT INTO suggested_actions (user_id, title, description, type, confidence_score)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING *;
+  `;
+  const result = await pool.query(query, [
+    action.userId,
+    action.title,
+    action.description,
+    action.type,
+    action.confidenceScore || 0,
+  ]);
+  return mapRowToSuggestedAction(result.rows[0]);
+};
+
+export const getDailyMood = async (userId: string, date: string) => {
+  const pool = getDBPool();
+  const query = `SELECT * FROM daily_mood WHERE user_id = $1 AND date = $2`;
+  const result = await pool.query(query, [userId, date]);
+  return result.rows[0] ? mapRowToDailyMood(result.rows[0]) : null;
+};
+
+export const logDailyMood = async (moodData: IDailyMood) => {
+  const pool = getDBPool();
+  const query = `
+    INSERT INTO daily_mood (user_id, date, mood, energy, note)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (user_id, date) 
+    DO UPDATE SET 
+      mood = EXCLUDED.mood,
+      energy = EXCLUDED.energy,
+      note = EXCLUDED.note,
+      updated_at = NOW()
+    RETURNING *;
+  `;
+  const result = await pool.query(query, [
+    moodData.userId,
+    moodData.date,
+    moodData.mood,
+    moodData.energy,
+    moodData.note,
+  ]);
+  return mapRowToDailyMood(result.rows[0]);
+};
+
+export const getPerformanceAnalysis = async (userId: string) => {
+  const endDate = new Date().toISOString().split("T")[0];
+  const weeklyStats = await getWeeklyStats(userId, endDate, 7);
+  const user = await userService.getUserById(userId, { currentStreak: true });
+
+  const aiStats = weeklyStats.map((s) => ({
+    date: s.date,
+    focusMinutes: s.focusScore,
+    meetingCount: s.meetingCount,
+  }));
+
+  return await analyzePerformanceWithGroq(aiStats, user?.currentStreak || 0);
 };

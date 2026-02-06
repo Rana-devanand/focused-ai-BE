@@ -99,3 +99,53 @@ export const analyzeEmailsWithGroq = async (emails: any[]) => {
     };
   }
 };
+// ...
+// (existing code)
+// ...
+
+interface IPerformanceStats {
+  date: string;
+  focusMinutes: number;
+  meetingCount: number;
+}
+
+export const analyzePerformanceWithGroq = async (
+  stats: IPerformanceStats[],
+  streak: number,
+) => {
+  const prompt = `Analyze the user's productivity over the last 7 days and provide a short, encouraging summary and a performance score (0-100).
+  
+  Recent Stats:
+  ${JSON.stringify(stats, null, 2)}
+  
+  Current Streak: ${streak} days.
+  
+  Return strictly valid JSON:
+  {
+    "performanceScore": number,
+    "summary": "Short explanation (max 2 sentences)",
+    "peakDay": "Best day of the week (e.g. Monday)"
+  }
+  `;
+
+  try {
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7,
+      max_completion_tokens: 1024,
+      response_format: { type: "json_object" },
+    });
+
+    const text = completion.choices[0]?.message?.content;
+    if (!text) throw new Error("No response from Groq");
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Groq Performance Analysis Error:", error);
+    return {
+      performanceScore: 0,
+      summary: "Unable to analyze performance at this time.",
+      peakDay: "-",
+    };
+  }
+};

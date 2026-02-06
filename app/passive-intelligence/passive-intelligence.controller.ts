@@ -3,6 +3,7 @@ import asyncHandler from "express-async-handler";
 import * as service from "./passive-intelligence.service";
 import * as aiService from "../ai/connection";
 import { createResponse } from "../common/helper/response.hepler";
+import * as userService from "../user/user.service";
 
 export const getDashboardData = asyncHandler(
   async (req: Request, res: Response) => {
@@ -14,12 +15,14 @@ export const getDashboardData = asyncHandler(
     endOfDay.setHours(23, 59, 59, 999);
 
     // Parallel fetch
-    const [stats, events, insights, tasksDueToday] = await Promise.all([
-      service.getDailyStats(userId, today),
-      service.getCalendarEvents(userId, startOfDay, endOfDay),
-      service.getInsights(userId, 3),
-      service.getTasksDueToday(userId),
-    ]);
+    const [stats, events, insights, tasksDueToday, suggestedActions] =
+      await Promise.all([
+        service.getDailyStats(userId, today),
+        service.getCalendarEvents(userId, startOfDay, endOfDay),
+        service.getInsights(userId, 3),
+        service.getTasksDueToday(userId),
+        service.getSuggestedActions(userId),
+      ]);
 
     res.send(
       createResponse({
@@ -31,14 +34,33 @@ export const getDashboardData = asyncHandler(
         events,
         insights,
         tasksDueToday,
+        suggestedActions,
       }),
     );
   },
 );
 
+// FIXING getDashboardData Logic cleanly:
+/*
+    const [stats, events, insights, tasksDueToday, suggestedActions] = await Promise.all([
+      service.getDailyStats(userId, today),
+      service.getCalendarEvents(userId, startOfDay, endOfDay),
+      service.getInsights(userId, 3),
+      service.getTasksDueToday(userId),
+      service.getSuggestedActions(userId),
+    ]);
+*/
+// I will just replace the whole function body in next chunk or do it properly here.
+// Actually I can't easily change the destructuring line and this line separately if they are far apart.
+// I will just use one large chunk for getDashboardData to be safe.
+
 export const getInsightsData = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = req.user?.id!;
+
+    // Ensure stats columns exist
+    await userService.ensureStatsColumns();
+
     const today = new Date();
     const endDate = today.toISOString().split("T")[0];
 
@@ -48,35 +70,22 @@ export const getInsightsData = asyncHandler(
     // 2. Fetch AI Insights
     const aiInsights = await service.getInsights(userId, 3);
 
-    // 3. Aggregate Data for Charts
+    // 3. Fetch User Streak & Total Active Time
+    const user = await userService.getUserById(userId, {
+      currentStreak: true,
+      totalActiveMinutes: true,
+    });
+
+    // 4. Get Performance Analysis (AI Summary + Peak Day)
+    const perfAnalysis = await service.getPerformanceAnalysis(userId);
+
+    // 5. Aggregate Data for Charts
     let totalFocusMinutes = 0;
-    let streak = 0;
-    let peakDay = { day: "", value: 0 };
     const appUsageMap: Record<string, number> = {};
-
-    // Calculate Streak (consecutive days with activity backwards from today)
-    // Note: weeklyStats is ordered ASC.
-    const reversedStats = [...weeklyStats].reverse();
-    const checkDate = new Date(today);
-
-    // Simple streak: check if entry exists for consecutive previous days
-    // A more robust streak would check gaps, but this is a starting point.
-    // For now, let's just count days in the last 7 days with focusScore > 0
-    streak = weeklyStats.filter((s) => s.focusScore > 0).length;
 
     weeklyStats.forEach((stat) => {
       // Focus Minutes
       totalFocusMinutes += stat.focusScore || 0; // Assuming focusScore is roughly minutes or points
-
-      // Peak Day
-      if ((stat.focusScore || 0) > peakDay.value) {
-        peakDay = {
-          day: new Date(stat.date).toLocaleDateString("en-US", {
-            weekday: "long",
-          }),
-          value: stat.focusScore || 0,
-        };
-      }
 
       // App Usage Aggregation
       if (Array.isArray(stat.appUsageBreakdown)) {
@@ -96,6 +105,11 @@ export const getInsightsData = asyncHandler(
       }),
       hours: parseFloat(((stat.focusScore || 0) / 60).toFixed(1)), // Convert to hours
       fullDate: stat.date,
+      // For chart library
+      value: parseFloat(((stat.focusScore || 0) / 60).toFixed(1)),
+      label: new Date(stat.date).toLocaleDateString("en-US", {
+        weekday: "short",
+      }),
     }));
 
     // Format Category Data (Top 5 Apps by time)
@@ -122,9 +136,13 @@ export const getInsightsData = asyncHandler(
           weeklyData: weeklyChartData,
           categoryData,
           summary: {
-            peakDay: peakDay.day || "None",
+            peakDay: perfAnalysis.peakDay || "None",
             avgDailyFocus: (totalFocusMinutes / 7 / 60).toFixed(1), // Hours
-            streak,
+            streak: user?.currentStreak || 0,
+            totalActiveHours: Math.round((user?.totalActiveMinutes || 0) / 60),
+            performanceScore: perfAnalysis.performanceScore || 0,
+            performanceSummary:
+              perfAnalysis.summary || "Keep up the good work!",
           },
           insights: aiInsights,
         },
@@ -431,7 +449,26 @@ export const getEmailTasks = asyncHandler(
     const userId = req.user?.id!;
     const limit = parseInt(req.query.limit as string) || 20;
 
-    const tasks = await service.getEmailTasks(userId, limit);
+    // Parse filter parameters
+    const filters: {
+      priority?: "HIGH" | "MEDIUM" | "LOW";
+      isRead?: boolean;
+      isManual?: boolean;
+    } = {};
+
+    if (req.query.priority) {
+      filters.priority = req.query.priority as "HIGH" | "MEDIUM" | "LOW";
+    }
+
+    if (req.query.isRead !== undefined) {
+      filters.isRead = req.query.isRead === "true";
+    }
+
+    if (req.query.isManual !== undefined) {
+      filters.isManual = req.query.isManual === "true";
+    }
+
+    const tasks = await service.getEmailTasks(userId, limit, filters);
 
     res.send(createResponse(tasks, "Email tasks retrieved successfully"));
   },
@@ -472,5 +509,41 @@ export const createManualTask = asyncHandler(
     });
 
     res.send(createResponse(task, "Task created successfully"));
+  },
+);
+
+export const getSuggestedActions = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id!;
+    const actions = await service.getSuggestedActions(userId);
+    res.send(
+      createResponse(actions, "Suggested actions retrieved successfully"),
+    );
+  },
+);
+
+export const getDailyMood = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id!;
+    const today = new Date().toISOString().split("T")[0];
+    const mood = await service.getDailyMood(userId, today);
+    res.send(createResponse(mood, "Daily mood retrieved successfully"));
+  },
+);
+
+export const logDailyMood = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id!;
+    const { mood, energy, note } = req.body;
+    const today = new Date().toISOString().split("T")[0];
+
+    const result = await service.logDailyMood({
+      userId,
+      date: today,
+      mood,
+      energy,
+      note,
+    });
+    res.send(createResponse(result, "Mood logged successfully"));
   },
 );
