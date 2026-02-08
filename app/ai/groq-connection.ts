@@ -113,7 +113,7 @@ export const analyzePerformanceWithGroq = async (
   stats: IPerformanceStats[],
   streak: number,
 ) => {
-  const prompt = `Analyze the user's productivity over the last 7 days and provide a short, encouraging summary and a performance score (0-100).
+  const prompt = `Analyze the user's productivity over the last 7 days and provide a medium, encouraging summary and a performance score (0-100).
   
   Recent Stats:
   ${JSON.stringify(stats, null, 2)}

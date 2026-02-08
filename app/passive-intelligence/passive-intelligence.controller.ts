@@ -61,6 +61,18 @@ export const getInsightsData = asyncHandler(
     // Ensure stats columns exist
     await userService.ensureStatsColumns();
 
+    // Check Subscription Status
+    const subscriptionService = require("../subscriptions/subscription.service");
+    const subStatus =
+      await subscriptionService.getUserSubscriptionStatus(userId);
+
+    // Trigger email check (async, don't await)
+    subscriptionService.checkAndSendExpiryEmails(userId).catch(console.error);
+
+    if (subStatus.status === "EXPIRED") {
+      throw new Error("SUBSCRIPTION_EXPIRED"); // Frontend will handle this specific error message
+    }
+
     const today = new Date();
     const endDate = today.toISOString().split("T")[0];
 
@@ -99,18 +111,24 @@ export const getInsightsData = asyncHandler(
     });
 
     // Format Weekly Data for Chart
-    const weeklyChartData = weeklyStats.map((stat) => ({
-      day: new Date(stat.date).toLocaleDateString("en-US", {
-        weekday: "short",
-      }),
-      hours: parseFloat(((stat.focusScore || 0) / 60).toFixed(1)), // Convert to hours
-      fullDate: stat.date,
-      // For chart library
-      value: parseFloat(((stat.focusScore || 0) / 60).toFixed(1)),
-      label: new Date(stat.date).toLocaleDateString("en-US", {
-        weekday: "short",
-      }),
-    }));
+    const weeklyChartData = weeklyStats.map((stat) => {
+      // Use focusScore if available, otherwise fall back to screenTimeMinutes
+      const minutes = stat.focusScore || stat.screenTimeMinutes || 0;
+      const hours = parseFloat((minutes / 60).toFixed(1));
+
+      return {
+        day: new Date(stat.date).toLocaleDateString("en-US", {
+          weekday: "short",
+        }),
+        hours: hours,
+        fullDate: stat.date,
+        // For chart library
+        value: hours,
+        label: new Date(stat.date).toLocaleDateString("en-US", {
+          weekday: "short",
+        }),
+      };
+    });
 
     // Format Category Data (Top 5 Apps by time)
     const predefinedColors = [
@@ -282,6 +300,26 @@ export const fetchAndAnalyzeEmails = asyncHandler(
       googleAccessToken: true,
       lastEmailFetch: true,
     });
+
+    // Check Subscription Status
+    const subscriptionService = require("../subscriptions/subscription.service");
+    const subStatus =
+      await subscriptionService.getUserSubscriptionStatus(userId);
+
+    // Trigger email check
+    subscriptionService.checkAndSendExpiryEmails(userId).catch(console.error);
+
+    if (subStatus.status === "EXPIRED") {
+      res
+        .status(403)
+        .send(
+          createResponse(
+            null,
+            "Subscription expired. Please upgrade to continue using Email Analysis.",
+          ),
+        );
+      return;
+    }
 
     if (!user.googleAccessToken) {
       console.log("❌ No Google access token found for user");

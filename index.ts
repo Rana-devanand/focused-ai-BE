@@ -41,6 +41,12 @@ app.use(bodyParser.json());
 app.use(express.json());
 app.use(morgan("dev"));
 
+app.use((req, res, next) => {
+  console.log(`[${req.method}] ${req.url}`);
+  console.log("Body:", req.body);
+  next();
+});
+
 const initApp = async (): Promise<void> => {
   // init mongodb (postgres)
   await initDB();

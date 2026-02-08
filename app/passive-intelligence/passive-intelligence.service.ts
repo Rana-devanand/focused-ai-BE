@@ -148,12 +148,15 @@ export const upsertDailyStats = async (stats: IDailyStats) => {
   ]);
   const statsResult = mapRowToStats(result.rows[0]);
 
-  if (stats.focusScore > 0) {
-    // Fire and forget stats update or await it? Await for consistency.
+  // Update user stats (streak, total active minutes)
+  // Use focusScore if available (productivity), else screenTime (activity)
+  const activeMinutes = stats.focusScore || stats.screenTimeMinutes || 0;
+
+  if (activeMinutes > 0) {
     try {
       await userService.updateUserStats(stats.userId, {
         date: stats.date,
-        minutes: stats.focusScore,
+        minutes: activeMinutes,
       });
     } catch (e) {
       console.error("Failed to update user stats:", e);

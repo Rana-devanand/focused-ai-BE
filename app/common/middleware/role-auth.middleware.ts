@@ -12,16 +12,27 @@ export const roleAuth = (roles: IUser["role"][], publicRoutes: string[] = []) =>
         next();
         return;
       }
-      const token = req.headers.authorization?.replace("Bearer ", "");
+      let token = req.headers.authorization?.replace("Bearer ", "");
+      if (token) {
+        token = token.trim();
+        if (token.startsWith('"') && token.endsWith('"')) {
+          token = token.slice(1, -1);
+        }
+      }
+      console.log("Extracted Token (JSON):", JSON.stringify(token));
+      console.log("Extracted Token Length:", token?.length);
       if (!token) {
         throw createHttpError(401, {
           message: `Invalid token`,
         });
       }
       try {
+        console.log("Verifying token...");
         const decodedUser = jwt.verify(token, process.env.JWT_SECRET!);
         req.user = decodedUser as IUser;
+        console.log("Token verified. User:", req.user.email);
       } catch (error: any) {
+        console.error("JWT Verify Error:", error.message);
         if (error.message === "jwt expired") {
           throw createHttpError(401, {
             message: `Token expired`,
@@ -44,5 +55,5 @@ export const roleAuth = (roles: IUser["role"][], publicRoutes: string[] = []) =>
         });
       }
       next();
-    }
+    },
   );
