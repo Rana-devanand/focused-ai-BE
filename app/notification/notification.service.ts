@@ -31,8 +31,8 @@ export const initNotificationService = () => {
     isInitialized = true;
 
     // Schedule task to run every hour
-    cron.schedule("0 */6 * * *", async () => {
-      console.log("⏰ Running 6-Hour Notification Check...");
+    cron.schedule("0 2,8,14,20 * * *", async () => {
+      console.log("⏰ Running Manual Schedule...");
       await checkAndSendNotifications();
     });
 
@@ -104,12 +104,26 @@ const checkAndSendNotifications = async () => {
         );
 
         console.log(`✅ Notification sent for task: ${task.id}`);
-      } catch (sendError) {
+      } catch (sendError: any) {
         console.error(
           `❌ Failed to send notification for task ${task.id}:`,
           sendError,
         );
-        // Optional: Implement retry logic or dead-letter queue
+
+        // Check for invalid token error
+        if (
+          sendError.code === "messaging/registration-token-not-registered" ||
+          sendError.errorInfo?.code ===
+            "messaging/registration-token-not-registered"
+        ) {
+          console.warn(
+            `⚠️ Invalid FCM token detected. Removing from user record.`,
+          );
+          await pool.query(
+            "UPDATE users SET fcm_token = NULL WHERE fcm_token = $1",
+            [task.fcm_token],
+          );
+        }
       }
     }
   } catch (error) {

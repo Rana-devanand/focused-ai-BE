@@ -110,7 +110,14 @@ export const createUserTokens = (user: Omit<IUser, "password">) => {
     expiresIn: (process.env.REFRESH_TOKEN_EXPIRY ??
       "2d") as jwt.SignOptions["expiresIn"],
   });
-  return { accessToken, refreshToken };
+  return {
+    accessToken,
+    refreshToken,
+    user: {
+      ...user,
+      password: undefined, // Ensure password is never sent
+    },
+  };
 };
 
 export const decodeToken = (token: string) => {

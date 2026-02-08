@@ -34,6 +34,13 @@ const mapRowToUser = (row: any): IUser => {
     currentStreak: row.current_streak,
     lastActiveDate: row.last_active_date,
     totalActiveMinutes: row.total_active_minutes,
+    stripeCustomerId: row.stripe_customer_id,
+    subscriptionId: row.subscription_id,
+    subscriptionStatus: row.subscription_status,
+    subscriptionPlan: row.subscription_plan,
+    subscriptionEndDate: row.subscription_end_date,
+    paymentStatus: row.payment_status,
+    lastTransactionId: row.last_transaction_id,
   };
 };
 
@@ -123,12 +130,24 @@ export const editUser = async (id: string, data: Partial<IUser>) => {
   if (data.notificationsEnabled !== undefined)
     dbData.notifications_enabled = data.notificationsEnabled;
 
+  // Payment-related fields
+  if (data.paymentStatus !== undefined)
+    dbData.payment_status = data.paymentStatus;
+  if (data.lastTransactionId !== undefined)
+    dbData.last_transaction_id = data.lastTransactionId;
+  if (data.subscriptionStatus !== undefined)
+    dbData.subscription_status = data.subscriptionStatus;
+  if (data.subscriptionPlan !== undefined)
+    dbData.subscription_plan = data.subscriptionPlan;
+  if (data.subscriptionEndDate !== undefined)
+    dbData.subscription_end_date = data.subscriptionEndDate;
+
   const { data: updatedUser, error } = await supabaseAdmin
     .from("users")
     .update(dbData)
     .eq("id", id)
     .select(
-      "id, name, email, image, role, provider, active, notifications_enabled, fcm_token, created_at, updated_at",
+      "id, name, email, image, role, provider, active, notifications_enabled, fcm_token, payment_status, last_transaction_id, subscription_status, subscription_plan, subscription_end_date, created_at, updated_at",
     )
     .single();
 
@@ -277,6 +296,25 @@ export const ensureStatsColumns = async () => {
     `);
   } catch (e) {
     console.error("Error ensuring stats columns:", e);
+  }
+};
+
+export const ensureSubscriptionColumns = async () => {
+  const pool = getDBPool();
+  try {
+    await pool.query(`
+      ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT,
+      ADD COLUMN IF NOT EXISTS subscription_id TEXT,
+      ADD COLUMN IF NOT EXISTS subscription_status TEXT,
+      ADD COLUMN IF NOT EXISTS subscription_plan TEXT,
+      ADD COLUMN IF NOT EXISTS subscription_end_date TIMESTAMP WITH TIME ZONE,
+      ADD COLUMN IF NOT EXISTS last_transaction_id TEXT,
+      ADD COLUMN IF NOT EXISTS payment_status TEXT;
+    `);
+    console.log("Subscription columns ensured");
+  } catch (e) {
+    console.error("Error ensuring subscription columns:", e);
   }
 };
 

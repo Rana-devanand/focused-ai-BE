@@ -3,6 +3,8 @@ import passport from "passport";
 import { catchError } from "../common/middleware/cath-error.middleware";
 import { roleAuth } from "../common/middleware/role-auth.middleware";
 import * as userController from "./user.controller";
+import * as paymentController from "./payment.controller";
+import * as razorpayController from "../payment/razorpay.controller";
 import { getAiStats } from "./user-stats.controller";
 import * as userValidator from "./user.validation";
 
@@ -13,7 +15,29 @@ router
   .get("/me", roleAuth(["USER"]), userController.getUserInfo)
   .get("/ai-stats", roleAuth(["USER"]), getAiStats)
   .get("/:id", userController.getUserById)
+  .get("/:id", userController.getUserById)
   .delete("/:id", userController.deleteUser)
+  .post("/payment/submit", roleAuth(["USER"]), paymentController.submitPayment)
+  .post(
+    "/payment/approve",
+    roleAuth(["USER"]),
+    paymentController.approvePayment,
+  )
+  // Razorpay payment routes
+  .post(
+    "/payment/razorpay/create-order",
+    roleAuth(["USER"]),
+    razorpayController.createOrder,
+  )
+  .post(
+    "/payment/razorpay/verify",
+    roleAuth(["USER"]),
+    razorpayController.verifyPayment,
+  )
+  .post("/payment/razorpay/webhook", razorpayController.handleWebhook)
+
+  .post("/", userValidator.createUser, catchError, userController.createUser)
+
   .post("/", userValidator.createUser, catchError, userController.createUser)
   .patch(
     "/update",
