@@ -18,7 +18,7 @@ import routes from "./app/routes";
 import { type IUser } from "./app/user/user.dto";
 import { testSupabaseConnection } from "./app/common/services/supabase.admin";
 import { initDB } from "./app/common/services/database.service";
-import { runMigration } from "./migrate";
+import { runMigration } from "./migration/migrate";
 import { connectAI } from "./app/ai/connection";
 import { initNotificationService } from "./app/notification/notification.service";
 
@@ -50,7 +50,7 @@ app.use((req, res, next) => {
 const initApp = async (): Promise<void> => {
   // init mongodb (postgres)
   await initDB();
-  await runMigration(); // Auto-run migration
+  // await runMigration(); // Auto-run migration
   await testSupabaseConnection();
   initNotificationService(); // Init hourly notifications
   // connectAI();

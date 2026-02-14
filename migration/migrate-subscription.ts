@@ -1,5 +1,5 @@
-import { ensureSubscriptionColumns } from "./app/user/user.service";
-import { initDB } from "./app/common/services/database.service";
+import { ensureSubscriptionColumns } from "../app/user/user.service";
+import { initDB } from "../app/common/services/database.service";
 import * as dotenv from "dotenv";
 dotenv.config({ path: "./.env.local" });
 
