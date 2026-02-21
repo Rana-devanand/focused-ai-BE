@@ -54,6 +54,11 @@ router.post(
   roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
   controller.createManualTask,
 );
+router.delete(
+  "/email-tasks",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.deleteTasks,
+);
 
 router.get(
   "/suggested-actions",

@@ -14,15 +14,38 @@ export const getDashboardData = asyncHandler(
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
+    // Handle optional month parameter (format: YYYY-MM)
+    let year = new Date().getFullYear();
+    let monthNum = new Date().getMonth();
+
+    if (req.query.month) {
+      const parts = (req.query.month as string).split("-");
+      if (parts.length === 2) {
+        year = parseInt(parts[0]);
+        monthNum = parseInt(parts[1]) - 1;
+      }
+    }
+
+    const lastDayOfMonth = new Date(year, monthNum + 1, 0);
+    const daysInMonth = lastDayOfMonth.getDate();
+    const endDateString = `${year}-${String(monthNum + 1).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+
     // Parallel fetch
-    const [stats, events, insights, tasksDueToday, suggestedActions] =
-      await Promise.all([
-        service.getDailyStats(userId, today),
-        service.getCalendarEvents(userId, startOfDay, endOfDay),
-        service.getInsights(userId, 3),
-        service.getTasksDueToday(userId),
-        service.getSuggestedActions(userId),
-      ]);
+    const [
+      stats,
+      events,
+      insights,
+      tasksDueToday,
+      suggestedActions,
+      weeklyStats,
+    ] = await Promise.all([
+      service.getDailyStats(userId, today),
+      service.getCalendarEvents(userId, startOfDay, endOfDay),
+      service.getInsights(userId, 3),
+      service.getTasksDueToday(userId),
+      service.getSuggestedActions(userId),
+      service.getWeeklyStats(userId, endDateString, daysInMonth),
+    ]);
 
     res.send(
       createResponse({
@@ -35,6 +58,7 @@ export const getDashboardData = asyncHandler(
         insights,
         tasksDueToday,
         suggestedActions,
+        weeklyStats,
       }),
     );
   },
@@ -585,3 +609,17 @@ export const logDailyMood = asyncHandler(
     res.send(createResponse(result, "Mood logged successfully"));
   },
 );
+
+export const deleteTasks = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id!;
+  const taskIds =
+    req.body.taskIds ||
+    (req.query.taskIds ? (req.query.taskIds as string).split(",") : []);
+
+  if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+    throw new Error("Task IDs are required");
+  }
+
+  const deletedTasks = await service.softDeleteEmailTasks(userId, taskIds);
+  res.send(createResponse(deletedTasks, "Tasks deleted successfully"));
+});
