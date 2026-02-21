@@ -265,9 +265,19 @@ export const getEmailTasks = async (
   },
 ): Promise<IEmailTask[]> => {
   const pool = getDBPool();
+  try {
+    await pool.query(
+      "ALTER TABLE email_tasks ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT false;",
+    );
+  } catch (e) {
+    console.error("Error ensuring is_deleted exists:", e);
+  }
 
   // Build WHERE clause dynamically based on filters
-  let whereConditions = ["user_id = $1"];
+  let whereConditions = [
+    "user_id = $1",
+    "(is_deleted IS NULL OR is_deleted = false)",
+  ];
   let queryParams: any[] = [userId];
   let paramIndex = 2;
 
@@ -408,6 +418,26 @@ export const createManualTask = async (
   ]);
 
   return mapRowToEmailTask(result.rows[0]);
+};
+
+export const softDeleteEmailTasks = async (
+  userId: string,
+  taskIds: string[],
+) => {
+  const pool = getDBPool();
+  // Ensure the column exists cleanly so we don't need a heavy migration manually
+  await pool.query(
+    "ALTER TABLE email_tasks ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT false;",
+  );
+
+  const query = `
+    UPDATE email_tasks
+    SET is_deleted = true, updated_at = NOW()
+    WHERE user_id = $1 AND id = ANY($2)
+    RETURNING *;
+  `;
+  const result = await pool.query(query, [userId, taskIds]);
+  return result.rows.map(mapRowToEmailTask);
 };
 
 export const getSuggestedActions = async (
