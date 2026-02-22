@@ -12,18 +12,54 @@ export const initNotificationService = () => {
   if (isInitialized) return;
   console.log("Initializing notification service...");
   try {
-    const serviceAccountPath = path.join(process.cwd(), "service-account.json");
+    let serviceAccount;
 
-    if (!fs.existsSync(serviceAccountPath)) {
-      console.warn(
-        "⚠️ service-account.json not found. Backend notifications disabled.",
-      );
-      return;
+    // 1. Try to load from environment variable first (Best for Production/Vercel)
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      try {
+        // If it's pure JSON string
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      } catch (e) {
+        try {
+          // If it's base64 encoded
+          const decoded = Buffer.from(
+            process.env.FIREBASE_SERVICE_ACCOUNT,
+            "base64",
+          ).toString("utf8");
+          serviceAccount = JSON.parse(decoded);
+        } catch (e2) {
+          console.error(
+            "Failed to parse FIREBASE_SERVICE_ACCOUNT env variable.",
+          );
+        }
+      }
     }
 
-    const serviceAccount = JSON.parse(
-      fs.readFileSync(serviceAccountPath, "utf8"),
-    );
+    // 2. Fallback to physical file (Best for Local Dev)
+    if (!serviceAccount) {
+      const pathsToCheck = [
+        path.join(process.cwd(), "service-account.json"),
+        path.join(__dirname, "../../service-account.json"),
+        path.join(__dirname, "../../../service-account.json"),
+      ];
+
+      let validPath = null;
+      for (const p of pathsToCheck) {
+        if (fs.existsSync(p)) {
+          validPath = p;
+          break;
+        }
+      }
+
+      if (!validPath) {
+        console.warn(
+          "⚠️ service-account.json not found and FIREBASE_SERVICE_ACCOUNT not set. Backend notifications disabled.",
+        );
+        return;
+      }
+
+      serviceAccount = JSON.parse(fs.readFileSync(validPath, "utf8"));
+    }
 
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
