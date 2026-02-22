@@ -169,7 +169,7 @@ export const sendCustomNotification = async (
   }
 
   const tokens = rows.map((r) => r.fcm_token);
-
+  console.log({tokens})
   try {
     const response = await admin.messaging().sendEachForMulticast({
       tokens,
