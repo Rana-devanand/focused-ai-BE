@@ -343,3 +343,41 @@ export const generateEmailComposeDraft = async (
     return null;
   }
 };
+
+export const generateCustomNotificationWithGroq = async (
+  customPrompt: string,
+) => {
+  const prompt = `You are a professional assistant creating a mobile push notification.
+  
+  The admin wants to send a notification with the following instructions/context:
+  "${customPrompt}"
+  
+  Requirements:
+  1. Capture the exact intent of the admin's prompt.
+  2. Keep it engaging but professional.
+  3. Title should be catchy (max 40 chars).
+  4. Body should be detailed and informative (max 180 chars).
+  
+  Return strictly valid JSON:
+  {
+    "title": "Notification Title (max 40 chars)",
+    "body": "Detailed notification body (max 180 chars)"
+  }`;
+
+  try {
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7,
+      max_completion_tokens: 300,
+      response_format: { type: "json_object" },
+    });
+
+    const text = completion.choices[0]?.message?.content;
+    if (!text) throw new Error("No response from Groq");
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Groq Custom Notification Generation Error:", error);
+    return null;
+  }
+};

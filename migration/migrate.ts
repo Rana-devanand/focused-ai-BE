@@ -34,10 +34,11 @@ export const runMigration = async () => {
       "users_update_notifications.sql",
       "home_screen_enhancements.sql",
       "subscriptions.sql",
+      "set_admin_role.sql",
     ];
 
     for (const file of migrationFiles) {
-      const filePath = path.join(__dirname, file);
+      const filePath = path.join(__dirname, "../sql", file); // Fixed path since sql is in ../sql
       const sql = fs.readFileSync(filePath, "utf8");
       console.log(`Running migration for ${file}...`);
       await pool.query(sql);

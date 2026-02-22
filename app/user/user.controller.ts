@@ -240,9 +240,15 @@ export const getAllUser = asyncHandler(async (req: Request, res: Response) => {
   const limit = req.query.limit
     ? parseInt(req.query.limit as string)
     : undefined;
-  const result = await userService.getAllUser({}, { skip, limit });
+  const search = (req.query.search as string) || "";
+  const activePushFirst = req.query.activePushFirst === "true";
+
+  const result = await userService.getAllUser(
+    {},
+    { skip, limit, search, activePushFirst },
+  );
   if (skip || limit) {
-    const count = await userService.countItems();
+    const count = await userService.countItems({ search });
     res.send(
       createResponse({
         count,

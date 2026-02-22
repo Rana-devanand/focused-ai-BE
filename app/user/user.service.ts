@@ -205,7 +205,12 @@ export const getUserById = async (
 
 export const getAllUser = async (
   projection?: Record<string, boolean>,
-  options?: { skip?: number; limit?: number },
+  options?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+    activePushFirst?: boolean;
+  },
 ) => {
   const pool = getDBPool();
 
@@ -231,9 +236,21 @@ export const getAllUser = async (
     }
   }
 
-  let query = `SELECT ${selectClause} FROM users ORDER BY created_at DESC`;
-
+  let query = `SELECT ${selectClause} FROM users`;
   const values: any[] = [];
+
+  if (options?.search) {
+    query += ` WHERE name ILIKE $1 OR email ILIKE $1`;
+    values.push(`%${options.search}%`);
+  }
+
+  let orderBy = ` ORDER BY created_at DESC`;
+  if (options?.activePushFirst) {
+    orderBy = ` ORDER BY CASE WHEN fcm_token IS NOT NULL AND fcm_token != '' THEN 0 ELSE 1 END, created_at DESC`;
+  }
+
+  query += orderBy;
+
   if (options?.limit) {
     query += ` LIMIT $${values.length + 1}`;
     values.push(options.limit);
@@ -278,10 +295,17 @@ export const getUserByEmail = async (
   return result.rows[0] ? mapRowToUser(result.rows[0]) : null;
 };
 
-export const countItems = async () => {
+export const countItems = async (options?: { search?: string }) => {
   const pool = getDBPool();
-  const query = `SELECT COUNT(*) as count FROM users`;
-  const result = await pool.query(query);
+  let query = `SELECT COUNT(*) as count FROM users`;
+  const values: any[] = [];
+
+  if (options?.search) {
+    query += ` WHERE name ILIKE $1 OR email ILIKE $1`;
+    values.push(`%${options.search}%`);
+  }
+
+  const result = await pool.query(query, values);
   return parseInt(result.rows[0].count);
 };
 
