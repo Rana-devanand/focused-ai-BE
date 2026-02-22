@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import googlePlayService from "./google-play.service";
 import { editUser } from "../user/user.service";
+import { getDBPool } from "../common/services/database.service";
 
 /**
  * Verify subscription purchase from the app
@@ -52,6 +53,25 @@ export const verifySubscription = async (req: Request, res: Response) => {
       paymentStatus: "verified",
       lastTransactionId: purchaseToken, // Store purchase token as transaction ID
     });
+
+    const pool = getDBPool();
+    // Delete existing sub record for user preventing duplicates
+    await pool.query("BEGIN");
+    await pool.query("DELETE FROM subscriptions WHERE user_id = $1", [userId]);
+
+    await pool.query(
+      `
+      INSERT INTO subscriptions (
+        user_id,
+        stripe_subscription_id,
+        plan_id,
+        status,
+        current_period_end
+      ) VALUES ($1, $2, $3, 'active', $4)
+      `,
+      [userId, purchaseToken, productId, new Date(expiryTime)],
+    );
+    await pool.query("COMMIT");
 
     return res.status(200).json({
       success: true,

@@ -22,7 +22,7 @@ export const getUserByEmail = async (email: string) => {
   const { data, error } = await supabaseAdmin
     .from("users")
     .select(
-      "id,  name, email,image, password, role, provider, created_at,updated_at",
+      "id,  name, email,image, password, role, provider, active, created_at,updated_at",
     )
     .eq("email", email)
     .single();
@@ -70,6 +70,14 @@ export const initPassport = () => {
           if (!user) {
             console.log("User not found for email:", email);
             return done(createError(401, "Invalid email or password"), false);
+          }
+
+          if (user.active === false) {
+            console.log("User account is deleted or disabled:", email);
+            return done(
+              createError(403, "Account is disabled or deleted"),
+              false,
+            );
           }
 
           console.log("User found:", {

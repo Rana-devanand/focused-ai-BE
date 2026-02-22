@@ -78,4 +78,34 @@ router.post(
   controller.logDailyMood,
 );
 
+router.post(
+  "/ai-reply/questions",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.getReplyQuestions,
+);
+
+router.post(
+  "/ai-reply/draft",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.getReplyDraft,
+);
+
+router.post(
+  "/ai-compose/questions",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.getComposeQuestions,
+);
+
+router.post(
+  "/ai-compose/draft",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.getComposeDraft,
+);
+
+router.post(
+  "/send-email",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.sendEmail,
+);
+
 export default router;

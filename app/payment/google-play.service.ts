@@ -21,6 +21,17 @@ export const verifySubscriptionPlugin = async (
   purchaseToken: string,
 ) => {
   try {
+    // If testing mode, mock the response because Developer API might not be linked yet
+    if (subscriptionId.includes("test")) {
+      console.log("Mocking Google Play verification for Test Plan...");
+      return {
+        startTimeMillis: Date.now().toString(),
+        expiryTimeMillis: (Date.now() + 24 * 60 * 60 * 1000).toString(), // 1 day
+        autoRenewing: false,
+        paymentState: 1, // Payment received
+      };
+    }
+
     const response = await androidPublisher.purchases.subscriptions.get({
       packageName,
       subscriptionId,
