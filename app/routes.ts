@@ -3,6 +3,7 @@ import path from "path";
 import userRoutes from "./user/user.route";
 import passiveIntelligenceRoutes from "./passive-intelligence/passive-intelligence.route";
 import aiChatRoutes from "./ai-chat/ai-chat.route";
+import adminRoutes from "./admin/admin.route";
 
 // routes
 const router = express.Router();
@@ -10,6 +11,7 @@ const router = express.Router();
 router.use("/users", userRoutes);
 router.use("/passive", passiveIntelligenceRoutes);
 router.use("/ai-chat", aiChatRoutes);
+router.use("/admin", adminRoutes);
 
 // Static Pages
 router.get("/neurotrack/privacy-policy", (req, res) => {
