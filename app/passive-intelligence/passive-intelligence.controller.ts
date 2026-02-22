@@ -2,6 +2,12 @@ import { Request, Response } from "express";
 import asyncHandler from "express-async-handler";
 import * as service from "./passive-intelligence.service";
 import * as aiService from "../ai/connection";
+import {
+  generateEmailReplyDraft,
+  generateEmailReplyQuestions,
+  generateEmailComposeQuestions,
+  generateEmailComposeDraft,
+} from "../ai/groq-connection";
 import { createResponse } from "../common/helper/response.hepler";
 import * as userService from "../user/user.service";
 
@@ -115,6 +121,10 @@ export const getInsightsData = asyncHandler(
     // 4. Get Performance Analysis (AI Summary + Peak Day)
     const perfAnalysis = await service.getPerformanceAnalysis(userId);
 
+    // Get today's active time
+    const todayStat = await service.getDailyStats(userId, endDate);
+    const todayActiveMinutes = todayStat?.screenTimeMinutes || 0;
+
     // 5. Aggregate Data for Charts
     let totalFocusMinutes = 0;
     const appUsageMap: Record<string, number> = {};
@@ -181,7 +191,7 @@ export const getInsightsData = asyncHandler(
             peakDay: perfAnalysis.peakDay || "None",
             avgDailyFocus: (totalFocusMinutes / 7 / 60).toFixed(1), // Hours
             streak: user?.currentStreak || 0,
-            totalActiveHours: Math.round((user?.totalActiveMinutes || 0) / 60),
+            totalActiveHours: parseFloat((todayActiveMinutes / 60).toFixed(1)),
             performanceScore: perfAnalysis.performanceScore || 0,
             performanceSummary:
               perfAnalysis.summary || "Keep up the good work!",
@@ -622,4 +632,124 @@ export const deleteTasks = asyncHandler(async (req: Request, res: Response) => {
 
   const deletedTasks = await service.softDeleteEmailTasks(userId, taskIds);
   res.send(createResponse(deletedTasks, "Tasks deleted successfully"));
+});
+
+export const getReplyQuestions = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { snippet } = req.body;
+    if (!snippet) {
+      res.status(400).send(createResponse(null, "Snippet is required"));
+      return;
+    }
+    const result = await generateEmailReplyQuestions(snippet);
+    res.send(createResponse(result, "Questions generated successfully"));
+  },
+);
+
+export const getReplyDraft = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { snippet, answers } = req.body;
+    if (!snippet || !answers) {
+      res
+        .status(400)
+        .send(createResponse(null, "Snippet and answers are required"));
+      return;
+    }
+    const result = await generateEmailReplyDraft(snippet, answers);
+    res.send(createResponse(result, "Draft generated successfully"));
+  },
+);
+
+export const getComposeQuestions = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { subject } = req.body;
+    if (!subject) {
+      res.status(400).send(createResponse(null, "Subject is required"));
+      return;
+    }
+    const result = await generateEmailComposeQuestions(subject);
+    res.send(createResponse(result, "Questions generated successfully"));
+  },
+);
+
+export const getComposeDraft = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { subject, answers } = req.body;
+    if (!subject || !answers) {
+      res
+        .status(400)
+        .send(createResponse(null, "Subject and answers are required"));
+      return;
+    }
+    const result = await generateEmailComposeDraft(subject, answers);
+    res.send(createResponse(result, "Draft generated successfully"));
+  },
+);
+
+export const sendEmail = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id!;
+  const { to, subject, body } = req.body;
+
+  if (!to || !subject || !body) {
+    res
+      .status(400)
+      .send(
+        createResponse(null, "Missing required fields (to, subject, body)"),
+      );
+    return;
+  }
+
+  const user = await userService.getUserById(userId, {
+    googleAccessToken: true,
+  });
+  if (!user?.googleAccessToken) {
+    res
+      .status(401)
+      .send(
+        createResponse(
+          null,
+          "Google access token not found. Please log in again.",
+        ),
+      );
+    return;
+  }
+
+  try {
+    const emailLines = [
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      `Content-Type: text/html; charset="UTF-8"`,
+      "",
+      body.replace(/\n/g, "<br>"), // Convert plain text newlines to HTML breaks
+    ];
+
+    const email = emailLines.join("\r\n");
+    const base64EncodedEmail = Buffer.from(email)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    const axios = require("axios");
+    const response = await axios.post(
+      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+      { raw: base64EncodedEmail },
+      {
+        headers: {
+          Authorization: `Bearer ${user.googleAccessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    res.send(createResponse(response.data, "Email sent successfully"));
+  } catch (error: any) {
+    console.error("❌ Error sending email:", error.response?.data || error);
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      throw new Error(
+        "Google access token expired or lacking permission. Please re-authenticate.",
+      );
+    }
+    throw error;
+  }
 });

@@ -219,6 +219,17 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
   res.send(createResponse(result, "User deleted sucssefully"));
 });
 
+export const deleteMyAccount = asyncHandler(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
+    const result = await userService.editUser(user.id, {
+      active: false,
+      refreshToken: "",
+    });
+    res.send(createResponse(result, "Account deleted successfully"));
+  },
+);
+
 export const getUserById = asyncHandler(async (req: Request, res: Response) => {
   const result = await userService.getUserById(req.params.id);
   res.send(createResponse(result));
@@ -302,6 +313,9 @@ export const appleLogin = asyncHandler(async (req: Request, res: Response) => {
   });
 
   const existUser = await userService.getUserByEmail(jwtClaims.email);
+  if (existUser && existUser.active === false) {
+    throw createHttpError(403, { message: "Account is disabled or deleted" });
+  }
   const user =
     existUser ??
     (await userService.createUser({
@@ -333,6 +347,9 @@ export const fbLogin = asyncHandler(async (req: Request, res: Response) => {
   }>(`https://graph.facebook.com/v15.0/me?${urlSearchParams.toString()}`);
 
   const existUser = await userService.getUserByEmail(data.email);
+  if (existUser && existUser.active === false) {
+    throw createHttpError(403, { message: "Account is disabled or deleted" });
+  }
   const user =
     existUser ??
     (await userService.createUser({
@@ -360,6 +377,9 @@ export const googleLogin = asyncHandler(async (req: Request, res: Response) => {
   const { email, name = " ", picture } = data;
 
   const existUser = await userService.getUserByEmail(data.email);
+  if (existUser && existUser.active === false) {
+    throw createHttpError(403, { message: "Account is disabled or deleted" });
+  }
   const user =
     existUser ??
     (await userService.createUser({
@@ -406,6 +426,9 @@ export const linkedInLogin = asyncHandler(
     }>(`https://api.linkedin.com/v2/userinfo?${urlSearchParams.toString()}`);
 
     const existUser = await userService.getUserByEmail(userData.email);
+    if (existUser && existUser.active === false) {
+      throw createHttpError(403, { message: "Account is disabled or deleted" });
+    }
     const user =
       existUser ??
       (await userService.createUser({

@@ -3,11 +3,12 @@ import cron from "node-cron";
 import path from "path";
 import fs from "fs";
 import { getDBPool } from "../common/services/database.service";
+import { generateNotificationWithGroq } from "../ai/groq-connection";
 
 let isInitialized = false;
 
 export const initNotificationService = () => {
-    console.log("isInitialized ===================== ",isInitialized);
+  console.log("isInitialized ===================== ", isInitialized);
   if (isInitialized) return;
   console.log("Initializing notification service...");
   try {
@@ -32,13 +33,13 @@ export const initNotificationService = () => {
     isInitialized = true;
 
     // Schedule task to run every hour
-    cron.schedule("0 2,8,14,20 * * *", async () => {
-      console.log("⏰ Running Manual Schedule...");
+    cron.schedule("0 * * * *", async () => {
+      console.log("⏰ Running Hourly AI Notification Schedule...");
       await checkAndSendNotifications();
     });
 
-    // Run immediately on startup for testing (optional, remove for prod)
-    // checkAndSendNotifications();
+    // Run immediately on startup
+    checkAndSendNotifications();
   } catch (error) {
     console.error("❌ Failed to init notification service:", error);
   }
@@ -48,22 +49,23 @@ const checkAndSendNotifications = async () => {
   const pool = getDBPool();
 
   try {
-    // 1. Fetch pending tasks with high/medium priority and user fcm_token
+    // 1. Fetch pending tasks with the user's fcm_token
     const query = `
       SELECT 
         t.id, 
         t.subject, 
-        t.priority, 
+        t.priority,
+        t.due_date,
+        u.id as user_id,
         u.fcm_token 
       FROM email_tasks t
       JOIN users u ON t.user_id = u.id
       WHERE 
         t.notification_sent = false 
-        AND t.priority IN ('HIGH', 'MEDIUM')
         AND u.fcm_token IS NOT NULL
         AND u.fcm_token != ''
         AND (u.notifications_enabled IS NULL OR u.notifications_enabled = true) -- Check preference
-      LIMIT 50; -- Batch size limits
+      LIMIT 100; -- Batch size limits
     `;
 
     const { rows: tasks } = await pool.query(query);
@@ -75,15 +77,41 @@ const checkAndSendNotifications = async () => {
 
     console.log(`📨 Found ${tasks.length} tasks to notify.`);
 
-    for (const task of tasks) {
+    // Group tasks by user
+    const tasksByUser = tasks.reduce((acc: any, task: any) => {
+      if (!acc[task.user_id]) {
+        acc[task.user_id] = {
+          fcm_token: task.fcm_token,
+          tasks: [],
+        };
+      }
+      acc[task.user_id].tasks.push(task);
+      return acc;
+    }, {});
+
+    // Process each user's tasks
+    for (const userId in tasksByUser) {
+      const { fcm_token, tasks: userTasks } = tasksByUser[userId];
+
       try {
-        const priorityEmoji = task.priority === "HIGH" ? "🔥" : "⚠️";
+        console.log(
+          `🤖 Generating AI notification for user ${userId} with ${userTasks.length} tasks...`,
+        );
+        const aiMessage = await generateNotificationWithGroq(userTasks);
+
+        let title = "New Updates in FocusAI";
+        let body = "You have new tasks to review.";
+
+        if (aiMessage && aiMessage.title && aiMessage.body) {
+          title = aiMessage.title;
+          body = aiMessage.body;
+        }
 
         await admin.messaging().send({
-          token: task.fcm_token,
+          token: fcm_token,
           notification: {
-            title: `${priorityEmoji} ${task.priority} Priority Task`,
-            body: task.subject,
+            title: title,
+            body: body,
           },
           android: {
             priority: "high",
@@ -93,21 +121,23 @@ const checkAndSendNotifications = async () => {
             },
           },
           data: {
-            taskId: task.id,
-            type: "EMAIL_TASK",
+            type: "AI_EMAIL_UPDATE",
           },
         });
 
-        // 2. Mark as sent
+        // 2. Mark processed tasks as sent
+        const taskIds = userTasks.map((t: any) => t.id);
         await pool.query(
-          "UPDATE email_tasks SET notification_sent = true WHERE id = $1",
-          [task.id],
+          "UPDATE email_tasks SET notification_sent = true WHERE id = ANY($1)",
+          [taskIds],
         );
 
-        console.log(`✅ Notification sent for task: ${task.id}`);
+        console.log(
+          `✅ AI Notification sent for user ${userId} | Marked ${taskIds.length} tasks as sent`,
+        );
       } catch (sendError: any) {
         console.error(
-          `❌ Failed to send notification for task ${task.id}:`,
+          `❌ Failed to send notification for user ${userId}:`,
           sendError,
         );
 
@@ -122,7 +152,7 @@ const checkAndSendNotifications = async () => {
           );
           await pool.query(
             "UPDATE users SET fcm_token = NULL WHERE fcm_token = $1",
-            [task.fcm_token],
+            [fcm_token],
           );
         }
       }

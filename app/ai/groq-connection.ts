@@ -149,3 +149,197 @@ export const analyzePerformanceWithGroq = async (
     };
   }
 };
+
+export const generateNotificationWithGroq = async (tasks: any[]) => {
+  const taskContent = tasks
+    .map(
+      (t, index) =>
+        `Task ${index + 1}: ${t.subject} (Priority: ${t.priority}, Due: ${t.due_date || "No deadline"})`,
+    )
+    .join("\n");
+
+  const prompt = `You are a highly intelligent AI assistant for a productivity app. 
+  The user has the following pending email tasks that require their attention:
+  
+  ${taskContent}
+  
+  Create a highly personalized, detailed, and action-oriented mobile push notification. 
+  The notification body MUST specifically mention details from the email tasks above (e.g., exact task subjects, "HIGH priority", or specific due dates). Make the user realize exactly what email is waiting for them.
+  
+  Requirements:
+  1. Clearly mention at least one specific task subject or deadline in the notification body.
+  2. Keep it engaging but urgent.
+  3. Title should be catchy (max 40 chars).
+  4. Body should be detailed and informative (approx 100-180 chars).
+  
+  Return strictly valid JSON:
+  {
+    "title": "Notification Title (max 40 chars)",
+    "body": "Detailed notification body mentioning specific email subjects or deadlines (max 180 chars)"
+  }`;
+
+  try {
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7,
+      max_completion_tokens: 300,
+      response_format: { type: "json_object" },
+    });
+
+    const text = completion.choices[0]?.message?.content;
+    if (!text) throw new Error("No response from Groq");
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Groq Notification Generation Error:", error);
+    return null;
+  }
+};
+
+export const generateEmailReplyQuestions = async (emailContent: string) => {
+  const prompt = `You are an AI assistant helping a user write an email reply.
+  Read the following email:
+  
+  "${emailContent}"
+  
+  Identify the most important constraints, missing details, or decisions needed to write a perfect reply.
+  Generate exactly 3 short, specific questions to ask the user to collect this information.
+  Keep them very brief and direct.
+  
+  Return strictly valid JSON:
+  {
+    "questions": [
+      "Question 1",
+      "Question 2",
+      "Question 3"
+    ]
+  }`;
+
+  try {
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7,
+      max_completion_tokens: 300,
+      response_format: { type: "json_object" },
+    });
+
+    const text = completion.choices[0]?.message?.content;
+    if (!text) throw new Error("No response from Groq");
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Groq Reply Questions Error:", error);
+    return null;
+  }
+};
+
+export const generateEmailReplyDraft = async (
+  emailContent: string,
+  userAnswers: string[],
+) => {
+  const prompt = `You are a professional assistant writing an email reply.
+  
+  Original Email:
+  "${emailContent}"
+  
+  User's Answers / Preferences for the reply:
+  ${userAnswers.map((ans, i) => `${i + 1}. ${ans}`).join("\n")}
+  
+  Write a complete, professional, yet productive email reply draft. Keep it well-structured, polite, and to the point. Do not include subject line in the response body, only the message. Do not use placeholders like [Your Name] unless absolutely necessary, try to leave it blank or neutral.
+  
+  Return strictly valid JSON:
+  {
+    "draft": "The full text of the proposed email reply."
+  }`;
+
+  try {
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7,
+      max_completion_tokens: 800,
+      response_format: { type: "json_object" },
+    });
+
+    const text = completion.choices[0]?.message?.content;
+    if (!text) throw new Error("No response from Groq");
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Groq Reply Draft Error:", error);
+    return null;
+  }
+};
+
+export const generateEmailComposeQuestions = async (subject: string) => {
+  const prompt = `You are an AI assistant helping a user write a new email from scratch.
+  The user has provided the following topic/subject for the email:
+  
+  "${subject}"
+  
+  Identify the most important details needed to write a perfect and complete email on this topic.
+  Generate exactly 3 short, specific questions to ask the user to collect this information (e.g. "Who is the recipient?", "What is the main goal?", "Are there any deadlines?").
+  Keep them very brief and direct.
+  
+  Return strictly valid JSON:
+  {
+    "questions": [
+      "Question 1",
+      "Question 2",
+      "Question 3"
+    ]
+  }`;
+
+  try {
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7,
+      max_completion_tokens: 300,
+      response_format: { type: "json_object" },
+    });
+
+    const text = completion.choices[0]?.message?.content;
+    if (!text) throw new Error("No response from Groq");
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Groq Compose Questions Error:", error);
+    return null;
+  }
+};
+
+export const generateEmailComposeDraft = async (
+  subject: string,
+  userAnswers: string[],
+) => {
+  const prompt = `You are a professional assistant writing a new email.
+  
+  Email Topic/Subject:
+  "${subject}"
+  
+  User's Answers / Context for the email:
+  ${userAnswers.map((ans, i) => `${i + 1}. ${ans}`).join("\n")}
+  
+  Write a complete, professional, yet productive email draft based on this information. Keep it well-structured, polite, and to the point. Do not include a subject line in the response body, only the message text itself. Try to keep placeholders to a minimum.
+  
+  Return strictly valid JSON:
+  {
+    "draft": "The full text of the proposed email."
+  }`;
+
+  try {
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7,
+      max_completion_tokens: 600,
+      response_format: { type: "json_object" },
+    });
+
+    const text = completion.choices[0]?.message?.content;
+    if (!text) throw new Error("No response from Groq");
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Groq Compose Draft Error:", error);
+    return null;
+  }
+};

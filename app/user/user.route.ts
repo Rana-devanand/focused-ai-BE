@@ -16,6 +16,7 @@ router
   .get("/me", roleAuth(["USER"]), userController.getUserInfo)
   .get("/ai-stats", roleAuth(["USER"]), getAiStats)
   .get("/:id", userController.getUserById)
+  .delete("/me/account", roleAuth(["USER"]), userController.deleteMyAccount)
   .delete("/:id", userController.deleteUser)
   .post("/payment/submit", roleAuth(["USER"]), paymentController.submitPayment)
   .post(

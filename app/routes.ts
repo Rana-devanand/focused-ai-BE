@@ -16,4 +16,15 @@ router.get("/neurotrack/privacy-policy", (req, res) => {
   res.sendFile(path.join(process.cwd(), "templates", "privacy-policy.html"));
 });
 
+// App Version Endpoint for Update Drawer
+router.get("/app-version", (req, res) => {
+  res.json({
+    latestVersion: "32", // Update this string to notify users of a new version!
+    forceUpdate: true,
+    storeUrl: "market://details?id=com.focusai.mobileapp", // Play Store deep link
+    message:
+      "✨ A new version of NeuroTrack is out! Please update to get the latest AI tools and bug fixes.",
+  });
+});
+
 export default router;
