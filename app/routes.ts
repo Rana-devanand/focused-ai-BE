@@ -14,7 +14,7 @@ router.use("/ai-chat", aiChatRoutes);
 router.use("/admin", adminRoutes);
 
 // Static Pages
-router.get("/neurotrack/privacy-policy", (req, res) => {
+router.get("/neurotrack/privacy-policy-policy", (req, res) => {
   res.sendFile(path.join(process.cwd(), "templates", "privacy-policy.html"));
 });
 

@@ -4,6 +4,7 @@ import express, { type Express, type Request, type Response } from "express";
 import http from "http";
 import morgan from "morgan";
 import dns from "node:dns";
+import rateLimit from "express-rate-limit";
 
 // Force IPv4 for database connection (Supabase often resolves to IPv6 which can fail in some environments)
 dns.setDefaultResultOrder("ipv4first");
@@ -35,7 +36,39 @@ const port = Number(process.env.PORT) ?? 5000;
 
 const app: Express = express();
 
-app.use(cors());
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per `window`
+  message: {
+    status: 429,
+    message:
+      "Too many requests from this IP, please try again after 15 minutes",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiter globally
+app.use(apiLimiter);
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://app.neurotrack.foocusedai.com",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  }),
+);
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(express.json());

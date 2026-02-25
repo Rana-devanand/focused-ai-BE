@@ -170,11 +170,14 @@ export const sendCustomNotification = async (
 
   const tokens = rows.map((r) => r.fcm_token);
 
-  // if (admin.apps.length === 0) {
-  //   throw new Error(
-  //     "Push Notification service (Firebase) is not initialized in the backend. Please check service-account config.",
-  //   );
-  // }
+  const {
+    ensureFirebaseInitialized,
+  } = require("../notification/notification.service");
+  if (!ensureFirebaseInitialized()) {
+    throw new Error(
+      "Push Notification service (Firebase) is not initialized in the backend. Please check service-account config.",
+    );
+  }
 
   try {
     const response = await admin.messaging().sendEachForMulticast({

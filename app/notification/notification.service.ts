@@ -7,10 +7,10 @@ import { generateNotificationWithGroq } from "../ai/groq-connection";
 
 let isInitialized = false;
 
-export const initNotificationService = () => {
-  console.log("isInitialized ===================== ", isInitialized);
-  if (isInitialized) return;
-  console.log("Initializing notification service...");
+export const ensureFirebaseInitialized = () => {
+  if (admin.apps.length > 0) return true;
+
+  console.log("Initializing Firebase Admin...");
   try {
     let serviceAccount;
 
@@ -55,7 +55,7 @@ export const initNotificationService = () => {
         console.warn(
           "⚠️ service-account.json not found and FIREBASE_SERVICE_ACCOUNT not set. Backend notifications disabled.",
         );
-        return;
+        return false;
       }
 
       serviceAccount = JSON.parse(fs.readFileSync(validPath, "utf8"));
@@ -66,19 +66,30 @@ export const initNotificationService = () => {
     });
 
     console.log("✅ Firebase Admin Initialized");
-    isInitialized = true;
-
-    // Schedule task to run every hour
-    cron.schedule("0 * * * *", async () => {
-      console.log("⏰ Running Hourly AI Notification Schedule...");
-      await checkAndSendNotifications();
-    });
-
-    // Run immediately on startup
-    checkAndSendNotifications();
+    return true;
   } catch (error) {
-    console.error("❌ Failed to init notification service:", error);
+    console.error("❌ Failed to init Firebase:", error);
+    return false;
   }
+};
+
+export const initNotificationService = () => {
+  console.log("isInitialized ===================== ", isInitialized);
+  if (isInitialized) return;
+
+  if (!ensureFirebaseInitialized()) {
+    return;
+  }
+  isInitialized = true;
+
+  // Schedule task to run every hour
+  cron.schedule("0 * * * *", async () => {
+    console.log("⏰ Running Hourly AI Notification Schedule...");
+    await checkAndSendNotifications();
+  });
+
+  // Run immediately on startup
+  checkAndSendNotifications();
 };
 
 const checkAndSendNotifications = async () => {
