@@ -38,7 +38,7 @@ const app: Express = express();
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 requests per `window`
+  max: 1000, // Limit each IP to 1000 requests per `window`
   message: {
     status: 429,
     message:
@@ -48,15 +48,14 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Apply rate limiter globally
-app.use(apiLimiter);
-
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
+  "http://10.248.57.83:5173",
   "https://app.neurotrack.foocusedai.com",
 ];
 
+// Apply CORS before rate limiter
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -69,6 +68,9 @@ app.use(
     credentials: true,
   }),
 );
+
+// Apply rate limiter globally
+app.use(apiLimiter);
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(express.json());

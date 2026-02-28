@@ -381,3 +381,40 @@ export const generateCustomNotificationWithGroq = async (
     return null;
   }
 };
+
+export const generateBulkEmailContent = async (subject: string) => {
+  const prompt = `You are a professional administrative assistant for NeuroTrack.
+  The admin needs to send a bulk email to users with the following subject line:
+  "${subject}"
+  
+  Write a professional, well-formatted, and concise email body for this subject.
+  Requirements:
+  1. Professional and polite tone.
+  2. Clear and actionable content.
+  3. No subject line in the response, only the message body.
+  4. Use "Best regards, NeuroTrack Team" as the sign-off.
+  
+  Return strictly valid JSON:
+  {
+    "content": "The full text of the proposed email body."
+  }`;
+
+  try {
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7,
+      max_completion_tokens: 1024,
+      response_format: { type: "json_object" },
+    });
+
+    const text = completion.choices[0]?.message?.content;
+    if (!text) throw new Error("No response from Groq");
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Groq Bulk Email Generation Error:", error);
+    return {
+      content: "Failed to generate email content. Please write manually.",
+    };
+  }
+};
