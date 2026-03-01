@@ -98,10 +98,6 @@ export const getTesterWelcomeEmailTemplate = (name: string) => `
         </p>
       </div>
 
-      <div style="text-align: center;">
-        <a href="https://play.google.com/store/apps/details?id=your.package.id" class="cta-button">Download for Android</a>
-      </div>
-
       <p class="text" style="margin-top: 40px; font-size: 14px;">
         If you have any questions, feel free to reply to this email.
       </p>

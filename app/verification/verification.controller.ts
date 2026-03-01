@@ -7,14 +7,19 @@ export const getActiveInstallers = asyncHandler(
   async (req: Request, res: Response) => {
     const skip = parseInt(req.query.skip as string) || 0;
     const limit = parseInt(req.query.limit as string) || 10;
-    const result = await verificationService.getActiveInstallers(skip, limit);
+    const status = (req.query.status as string) || "not-installed";
+    const result = await verificationService.getActiveInstallers(
+      skip,
+      limit,
+      status,
+    );
     res.send(createResponse(result));
   },
 );
 
 export const sendBulkEmail = asyncHandler(
   async (req: Request, res: Response) => {
-    const { userIds, subject, messageBody } = req.body;
+    const { userIds, subject, messageBody, includePlayStoreLink } = req.body;
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
       throw new Error("User IDs are required and must be a non-empty array");
     }
@@ -22,6 +27,7 @@ export const sendBulkEmail = asyncHandler(
       userIds,
       subject,
       messageBody,
+      includePlayStoreLink,
     );
     res.send(createResponse(result, "Bulk email process initiated"));
   },

@@ -1,6 +1,7 @@
 export const getBulkVerificationEmailTemplate = (
   name: string,
   message: string,
+  includePlayStoreLink: boolean = false,
 ) => `
 <!DOCTYPE html>
 <html>
@@ -43,6 +44,20 @@ export const getBulkVerificationEmailTemplate = (
       font-size: 16px;
       white-space: pre-wrap;
     }
+    .cta-container {
+      margin-top: 32px;
+      text-align: center;
+    }
+    .button {
+      background-color: #6C3BFF;
+      color: #ffffff !important;
+      padding: 14px 28px;
+      text-decoration: none;
+      border-radius: 12px;
+      font-weight: 700;
+      display: inline-block;
+      font-size: 16px;
+    }
     .footer {
       padding: 24px;
       text-align: center;
@@ -60,6 +75,16 @@ export const getBulkVerificationEmailTemplate = (
     <div class="content">
       <p class="greeting">Hello ${name},</p>
       <div class="message">${message}</div>
+      ${
+        includePlayStoreLink
+          ? `
+      <div class="cta-container">
+        <p style="margin-bottom: 20px; color: #666;">Get started by downloading the app from Google Play Store:</p>
+        <a href="https://play.google.com/store/apps/details?id=com.focusai.mobileapp" class="button">Download NeuroTrack App</a>
+      </div>
+      `
+          : ""
+      }
     </div>
     <div class="footer">
       Sent with NeuroTrack Admin Panel.
