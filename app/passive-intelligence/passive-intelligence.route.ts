@@ -39,6 +39,11 @@ router.post(
   roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
   controller.fetchAndAnalyzeEmails,
 );
+router.post(
+  "/force-fetch-emails",
+  roleAuth(["USER", "ADMIN"], ["active", "blocked"]),
+  controller.postPurchaseFetchEmails,
+);
 router.get(
   "/email-tasks",
   roleAuth(["USER", "ADMIN"], ["active", "blocked"]),

@@ -516,6 +516,128 @@ export const fetchAndAnalyzeEmails = asyncHandler(
   },
 );
 
+/**
+ * Called right after a successful plan purchase.
+ * Resets the lastEmailFetch cooldown and re-fetches emails from the date
+ * of the last known email fetch (so no missed analysis period).
+ */
+export const postPurchaseFetchEmails = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id!;
+    const axios = require("axios");
+    const userService = require("../user/user.service");
+
+    console.log("🎉 Post-purchase email refetch triggered for user:", userId);
+
+    const user = await userService.getUserById(userId, {
+      googleAccessToken: true,
+      lastEmailFetch: true,
+    });
+
+    if (!user?.googleAccessToken) {
+      res.send(
+        createResponse(
+          null,
+          "No Google access token. Please sign in with Google to enable email analysis.",
+        ),
+      );
+      return;
+    }
+
+    // Determine fetch start date from last known fetch, or 30 days back for new subscribers
+    let fetchFromDate: Date;
+    if (user.lastEmailFetch) {
+      fetchFromDate = new Date(user.lastEmailFetch);
+      console.log(
+        `📅 Fetching from last fetch date: ${fetchFromDate.toISOString()}`,
+      );
+    } else {
+      fetchFromDate = new Date();
+      fetchFromDate.setDate(fetchFromDate.getDate() - 30);
+      console.log("📅 No previous fetch — fetching last 30 days");
+    }
+
+    try {
+      const afterTimestamp = Math.floor(fetchFromDate.getTime() / 1000);
+      const gmailResponse = await axios.get(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages`,
+        {
+          headers: { Authorization: `Bearer ${user.googleAccessToken}` },
+          params: { q: `after:${afterTimestamp}`, maxResults: 50 },
+        },
+      );
+
+      const messages = gmailResponse.data.messages || [];
+      console.log(`📨 Found ${messages.length} emails`);
+
+      const emails = await Promise.all(
+        messages.slice(0, 25).map(async (msg: any) => {
+          const detail = await axios.get(
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`,
+            { headers: { Authorization: `Bearer ${user.googleAccessToken}` } },
+          );
+          const headers = detail.data.payload.headers;
+          const getH = (n: string) =>
+            headers.find((h: any) => h.name === n)?.value || "";
+          return {
+            id: detail.data.id,
+            subject: getH("Subject"),
+            from: getH("From"),
+            date: getH("Date"),
+            snippet: detail.data.snippet,
+          };
+        }),
+      );
+
+      const analysis = await aiService.analyzeEmailsCallback(emails);
+
+      if (analysis?.tasks) {
+        for (const task of analysis.tasks) {
+          const src = emails[task.email_index || 0] || {};
+          await service.createEmailTask({
+            userId,
+            subject: task.subject,
+            taskDescription: task.process_thought,
+            priority: task.priority,
+            dueDate: task.due_date ? new Date(task.due_date) : undefined,
+            snippet: src.snippet,
+            emailId: src.id,
+            fromAddress: src.from,
+          });
+        }
+      }
+
+      if (analysis?.summary) {
+        await service.createInsight({
+          userId,
+          type: "PRODUCTIVITY_TIP",
+          message: `Post-Purchase Analysis: ${analysis.summary}`,
+          metadata: { burnout_risk: analysis.burnout_risk },
+        });
+      }
+
+      // Mark fetch time as now
+      await userService.editUser(userId, { lastEmailFetch: new Date() });
+
+      console.log("🎉 Post-purchase email analysis complete!");
+      res.send(
+        createResponse(
+          { emailCount: emails.length, analysis },
+          "Post-purchase email analysis complete",
+        ),
+      );
+    } catch (error: any) {
+      console.error("❌ Post-purchase fetch error:", error.message);
+      if (error.response?.status === 401) {
+        throw new Error(
+          "Google token expired. Please sign in with Google again.",
+        );
+      }
+      throw error;
+    }
+  },
+);
+
 export const getEmailTasks = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = req.user?.id!;

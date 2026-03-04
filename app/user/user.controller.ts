@@ -270,7 +270,36 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
 export const getUserInfo = asyncHandler(async (req: Request, res: Response) => {
   const user = await userService.getUserById(req.user?.id!);
-  res.send(createResponse(user));
+
+  // Compute real-time subscription status so the mobile app always gets
+  // an accurate value — the DB field is set at purchase time and never
+  // automatically flipped to 'expired' by a cron job.
+  const subscriptionService = require("../subscriptions/subscription.service");
+  const subStatus = await subscriptionService.getUserSubscriptionStatus(
+    req.user?.id!,
+  );
+
+  // Map computed status to the lowercase values the mobile app expects
+  let computedStatus: "active" | "expired" | "inactive";
+  if (subStatus.status === "PAID" || subStatus.status === "TRIAL") {
+    computedStatus = "active";
+  } else if (subStatus.status === "EXPIRED") {
+    computedStatus = "expired";
+  } else {
+    computedStatus = "inactive";
+  }
+
+  // Inject computed status into the user object before responding
+  const enrichedUser = {
+    ...user,
+    subscriptionStatus: computedStatus,
+    // Also expose daysLeft and expiry date for richer UI
+    subscriptionDaysLeft: subStatus.daysLeft ?? 0,
+    subscriptionExpiryDate:
+      subStatus.expiryDate ?? user?.subscriptionEndDate ?? null,
+  };
+
+  res.send(createResponse(enrichedUser));
 });
 
 export const logout = asyncHandler(async (req: Request, res: Response) => {
