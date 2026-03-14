@@ -53,6 +53,7 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://10.248.57.83:5173",
   "https://app.neurotrack.foocusedai.com",
+  "https://foocusedai.com",
 ];
 
 // Apply CORS before rate limiter
